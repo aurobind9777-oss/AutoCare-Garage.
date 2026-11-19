@@ -1,0 +1,665 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Authenticated platform user account with role and optional garage assignment.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["super_admin", "garage_manager", "mechanic", "customer"] },
+        "garageId": { "type": "string", "maxLength": 64 },
+        "claimedInviteId": { "type": "string", "maxLength": 128 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "isActive", "createdAt", "updatedAt"]
+    },
+    "CustomerProfile": {
+      "title": "CustomerProfile",
+      "description": "Private customer PII profile isolated from non-owners.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "address": { "type": "string", "maxLength": 300 },
+        "city": { "type": "string", "maxLength": 80 },
+        "pincode": { "type": "string", "maxLength": 16 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "createdAt", "updatedAt"]
+    },
+    "Garage": {
+      "title": "Garage",
+      "description": "One of the six independent AutoCare Garage service locations.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "minLength": 2, "maxLength": 24 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "address": { "type": "string", "minLength": 4, "maxLength": 300 },
+        "phone": { "type": "string", "minLength": 4, "maxLength": 30 },
+        "email": { "type": "string", "minLength": 4, "maxLength": 160 },
+        "operatingHours": { "type": "string", "minLength": 4, "maxLength": 120 },
+        "dailyCapacity": { "type": "number" },
+        "slotDurationMins": { "type": "number" },
+        "photoUrl": { "type": "string", "maxLength": 500 },
+        "managerUid": { "type": "string", "maxLength": 128 },
+        "managerName": { "type": "string", "maxLength": 120 },
+        "isActive": { "type": "boolean" },
+        "isDemoInfo": { "type": "boolean" },
+        "supportedVehicles": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "code", "name", "city", "address", "phone", "email", "operatingHours", "dailyCapacity", "slotDurationMins", "isActive", "createdAt", "updatedAt"]
+    },
+    "StaffInvite": {
+      "title": "StaffInvite",
+      "description": "Super Admin pre-authorization for a Garage Manager or Mechanic by email.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "role": { "type": "string", "enum": ["garage_manager", "mechanic"] },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "specialization": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["pending", "claimed", "revoked"] },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "garageId", "name", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "GarageManager": {
+      "title": "GarageManager",
+      "description": "Assigned manager profile for one specific garage.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "garageId", "name", "email", "isActive", "createdAt", "updatedAt"]
+    },
+    "GarageMechanic": {
+      "title": "GarageMechanic",
+      "description": "Mechanic assigned to a specific garage.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "specialization": { "type": "string", "maxLength": 120 },
+        "isAvailable": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "garageId", "name", "email", "isAvailable", "isActive", "createdAt", "updatedAt"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Customer registered Car or Bike.",
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "vehicleType": { "type": "string", "enum": ["Car", "Bike"] },
+        "registrationNumber": { "type": "string", "minLength": 3, "maxLength": 32 },
+        "brand": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "model": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "variant": { "type": "string", "maxLength": 64 },
+        "fuelType": { "type": "string", "maxLength": 32 },
+        "year": { "type": "number" },
+        "odometer": { "type": "number" },
+        "photoUrl": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "vehicleType", "registrationNumber", "brand", "model", "fuelType", "year", "odometer", "createdAt", "updatedAt"]
+    },
+    "ServiceCategory": {
+      "title": "ServiceCategory",
+      "description": "Garage-specific service category for Car or Bike.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "vehicleType": { "type": "string", "enum": ["Car", "Bike"] },
+        "description": { "type": "string", "maxLength": 300 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "name", "vehicleType", "isActive", "createdAt", "updatedAt"]
+    },
+    "ServicePackage": {
+      "title": "ServicePackage",
+      "description": "Garage-specific service package with transparent labour and parts estimates.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "categoryId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "categoryName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "vehicleType": { "type": "string", "enum": ["Car", "Bike"] },
+        "includedServices": { "type": "array" },
+        "labourCharge": { "type": "number" },
+        "partsEstimate": { "type": "number" },
+        "startingPrice": { "type": "number" },
+        "estimatedDurationMins": { "type": "number" },
+        "description": { "type": "string", "maxLength": 500 },
+        "isDemoEstimate": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "categoryId", "categoryName", "name", "vehicleType", "includedServices", "labourCharge", "partsEstimate", "startingPrice", "estimatedDurationMins", "isActive", "createdAt", "updatedAt"]
+    },
+    "AppointmentSlot": {
+      "title": "AppointmentSlot",
+      "description": "Atomic garage appointment slot capacity tracker.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "minLength": 10, "maxLength": 10 },
+        "timeSlot": { "type": "string", "minLength": 3, "maxLength": 24 },
+        "capacity": { "type": "number" },
+        "bookedCount": { "type": "number" },
+        "isBlocked": { "type": "boolean" },
+        "note": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "date", "timeSlot", "capacity", "bookedCount", "isBlocked", "createdAt", "updatedAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Customer service booking routed strictly to one selected garage.",
+      "type": "object",
+      "properties": {
+        "bookingCode": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerPhone": { "type": "string", "minLength": 4, "maxLength": 30 },
+        "vehicleId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "vehicleType": { "type": "string", "enum": ["Car", "Bike"] },
+        "registrationNumber": { "type": "string", "minLength": 3, "maxLength": 32 },
+        "vehicleBrand": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "vehicleModel": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "categoryId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "categoryName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "packageId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "packageName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "estimatedPrice": { "type": "number" },
+        "problemDescription": { "type": "string", "minLength": 3, "maxLength": 1000 },
+        "photoUrls": { "type": "array" },
+        "appointmentDate": { "type": "string", "minLength": 10, "maxLength": 10 },
+        "appointmentTime": { "type": "string", "minLength": 3, "maxLength": 24 },
+        "slotId": { "type": "string", "minLength": 3, "maxLength": 128 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Pending",
+            "Accepted",
+            "Rejected",
+            "Reschedule Requested",
+            "Confirmed",
+            "Mechanic Assigned",
+            "Vehicle Received",
+            "Inspection",
+            "Estimate Prepared",
+            "Awaiting Customer Approval",
+            "Work In Progress",
+            "Waiting for Parts",
+            "Quality Check",
+            "Ready for Pickup",
+            "Completed",
+            "Cancellation Requested",
+            "Cancelled"
+          ]
+        },
+        "statusHistory": { "type": "array" },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "rescheduleSuggestedDate": { "type": "string", "maxLength": 20 },
+        "rescheduleSuggestedTime": { "type": "string", "maxLength": 30 },
+        "rescheduleNote": { "type": "string", "maxLength": 300 },
+        "assignedMechanicId": { "type": "string", "maxLength": 128 },
+        "assignedMechanicName": { "type": "string", "maxLength": 120 },
+        "acceptedBy": { "type": "string", "maxLength": 128 },
+        "rejectedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "bookingCode",
+        "garageId",
+        "garageName",
+        "customerId",
+        "customerName",
+        "customerPhone",
+        "vehicleId",
+        "vehicleType",
+        "registrationNumber",
+        "vehicleBrand",
+        "vehicleModel",
+        "categoryId",
+        "categoryName",
+        "packageId",
+        "packageName",
+        "estimatedPrice",
+        "problemDescription",
+        "appointmentDate",
+        "appointmentTime",
+        "slotId",
+        "status",
+        "statusHistory",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "JobCard": {
+      "title": "JobCard",
+      "description": "Workshop job card created after booking acceptance and mechanic assignment.",
+      "type": "object",
+      "properties": {
+        "jobCardCode": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "bookingId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "assignedMechanicId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "assignedMechanicName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "vehicleSummary": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "customerComplaint": { "type": "string", "maxLength": 1000 },
+        "inspectionResults": { "type": "string", "maxLength": 1500 },
+        "recommendedWork": { "type": "string", "maxLength": 1500 },
+        "customerApprovedExtraWork": { "type": "boolean" },
+        "labourCharges": { "type": "number" },
+        "partsCharges": { "type": "number" },
+        "estimatedCompletion": { "type": "string", "maxLength": 64 },
+        "actualCompletion": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "maxLength": 48 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jobCardCode", "bookingId", "garageId", "customerId", "assignedMechanicId", "assignedMechanicName", "vehicleSummary", "customerApprovedExtraWork", "labourCharges", "partsCharges", "status", "createdAt", "updatedAt"]
+    },
+    "Inspection": {
+      "title": "Inspection",
+      "description": "Mechanic inspection report and repair checklist.",
+      "type": "object",
+      "properties": {
+        "jobCardId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "bookingId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "assignedMechanicId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "checklist": { "type": "array" },
+        "photoUrls": { "type": "array" },
+        "submittedForApproval": { "type": "boolean" },
+        "managerApproved": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jobCardId", "bookingId", "garageId", "assignedMechanicId", "customerId", "notes", "checklist", "submittedForApproval", "managerApproved", "createdAt", "updatedAt"]
+    },
+    "MechanicUpdate": {
+      "title": "MechanicUpdate",
+      "description": "Timestamped mechanic work progress log.",
+      "type": "object",
+      "properties": {
+        "jobCardId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "bookingId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "assignedMechanicId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "notes": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "partsUsed": { "type": "array" },
+        "labourNotes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jobCardId", "bookingId", "garageId", "assignedMechanicId", "customerId", "status", "notes", "createdAt"]
+    },
+    "SparePart": {
+      "title": "SparePart",
+      "description": "Garage-specific spare part inventory item.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "authorizedMechanicIds": { "type": "array" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "sku": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "brand": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "purchasePrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "quantity": { "type": "number" },
+        "minStockLevel": { "type": "number" },
+        "supplier": { "type": "string", "maxLength": 120 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "name", "sku", "category", "brand", "purchasePrice", "sellingPrice", "quantity", "minStockLevel", "isActive", "createdAt", "updatedAt"]
+    },
+    "InventoryLog": {
+      "title": "InventoryLog",
+      "description": "Stock purchase and usage movement record.",
+      "type": "object",
+      "properties": {
+        "partId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "partName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["purchase", "usage", "adjustment"] },
+        "quantityDelta": { "type": "number" },
+        "previousQty": { "type": "number" },
+        "newQty": { "type": "number" },
+        "bookingId": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 300 },
+        "performedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["partId", "partName", "garageId", "type", "quantityDelta", "previousQty", "newQty", "performedBy", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Garage-specific billing invoice with INR totals and tax.",
+      "type": "object",
+      "properties": {
+        "invoiceNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "garageAddress": { "type": "string", "maxLength": 300 },
+        "garagePhone": { "type": "string", "maxLength": 30 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerPhone": { "type": "string", "maxLength": 30 },
+        "vehicleSummary": { "type": "string", "minLength": 2, "maxLength": 180 },
+        "bookingId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "jobCardId": { "type": "string", "maxLength": 128 },
+        "serviceDescription": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "labourCharges": { "type": "number" },
+        "partsCharges": { "type": "number" },
+        "discount": { "type": "number" },
+        "taxRate": { "type": "number" },
+        "taxAmount": { "type": "number" },
+        "finalTotal": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["Pending", "Partially Paid", "Paid", "Refunded"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["invoiceNumber", "garageId", "garageName", "customerId", "customerName", "vehicleSummary", "bookingId", "serviceDescription", "labourCharges", "partsCharges", "discount", "taxRate", "taxAmount", "finalTotal", "paidAmount", "paymentStatus", "createdAt", "updatedAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Manually verified payment record tied to an invoice and garage.",
+      "type": "object",
+      "properties": {
+        "invoiceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "invoiceNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "bookingId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "amount": { "type": "number" },
+        "method": { "type": "string", "enum": ["Cash", "UPI", "Card (Manual)", "Other"] },
+        "referenceNote": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Pending", "Partially Paid", "Paid", "Refunded"] },
+        "verifiedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["invoiceId", "invoiceNumber", "bookingId", "garageId", "customerId", "amount", "method", "status", "verifiedBy", "createdAt", "updatedAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Garage-specific operating expense record.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "enum": ["Spare Parts Purchases", "Mechanic Salaries", "Rent", "Electricity", "Equipment", "Maintenance", "Other"] },
+        "description": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "amount": { "type": "number" },
+        "expenseDate": { "type": "string", "minLength": 10, "maxLength": 10 },
+        "recordedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "category", "description", "amount", "expenseDate", "recordedBy", "createdAt", "updatedAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Verified customer review for a completed service booking.",
+      "type": "object",
+      "properties": {
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "bookingId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "minLength": 3, "maxLength": 1000 },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["garageId", "bookingId", "customerId", "customerName", "rating", "comment", "verified", "createdAt"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Customer support ticket routed to the relevant garage.",
+      "type": "object",
+      "properties": {
+        "ticketCode": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "bookingId": { "type": "string", "maxLength": 128 },
+        "subject": { "type": "string", "minLength": 3, "maxLength": 180 },
+        "message": { "type": "string", "minLength": 3, "maxLength": 1500 },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High"] },
+        "status": { "type": "string", "enum": ["Open", "In Progress", "Resolved", "Closed"] },
+        "replies": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketCode", "customerId", "customerName", "garageId", "subject", "message", "priority", "status", "replies", "createdAt", "updatedAt"]
+    },
+    "SupportInternalNote": {
+      "title": "SupportInternalNote",
+      "description": "Private staff-only note for support tickets, invisible to customers.",
+      "type": "object",
+      "properties": {
+        "ticketId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "garageId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "garageManagerId": { "type": "string", "maxLength": 128 },
+        "authorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "note": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketId", "garageId", "authorId", "note", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Real Firestore-based in-app notification for customer, manager, or Super Admin.",
+      "type": "object",
+      "properties": {
+        "recipientId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "recipientRole": { "type": "string", "enum": ["super_admin", "garage_manager", "mechanic", "customer"] },
+        "garageId": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "message": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "type": { "type": "string", "maxLength": 48 },
+        "relatedBookingId": { "type": "string", "maxLength": 128 },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["recipientId", "recipientRole", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable platform audit trail for critical actions.",
+      "type": "object",
+      "properties": {
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "actorRole": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "actorEmail": { "type": "string", "maxLength": 160 },
+        "action": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "targetCollection": { "type": "string", "minLength": 2, "maxLength": 64 },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "garageId": { "type": "string", "maxLength": 64 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorId", "actorRole", "action", "targetCollection", "targetId", "details", "createdAt"]
+    },
+    "PlatformSetting": {
+      "title": "PlatformSetting",
+      "description": "Global platform configuration managed by Super Admin.",
+      "type": "object",
+      "properties": {
+        "businessName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "tagline": { "type": "string", "maxLength": 200 },
+        "currency": { "type": "string", "maxLength": 16 },
+        "defaultTaxRate": { "type": "number" },
+        "supportEmail": { "type": "string", "maxLength": 160 },
+        "supportPhone": { "type": "string", "maxLength": 30 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["businessName", "tagline", "currency", "defaultTaxRate", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "User account and role mapping."
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/CustomerProfile" },
+      "description": "Private customer PII profile."
+    },
+    "/garages/{garageId}": {
+      "schema": { "$ref": "#/entities/Garage" },
+      "description": "Six independent garages."
+    },
+    "/staff_invites/{inviteId}": {
+      "schema": { "$ref": "#/entities/StaffInvite" },
+      "description": "Super Admin pre-authorized manager/mechanic invitations."
+    },
+    "/garage_managers/{managerId}": {
+      "schema": { "$ref": "#/entities/GarageManager" },
+      "description": "Garage manager profiles."
+    },
+    "/garage_mechanics/{mechanicId}": {
+      "schema": { "$ref": "#/entities/GarageMechanic" },
+      "description": "Garage mechanic profiles."
+    },
+    "/vehicles/{vehicleId}": {
+      "schema": { "$ref": "#/entities/Vehicle" },
+      "description": "Customer registered cars and bikes."
+    },
+    "/service_categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/ServiceCategory" },
+      "description": "Garage-specific service categories."
+    },
+    "/service_packages/{packageId}": {
+      "schema": { "$ref": "#/entities/ServicePackage" },
+      "description": "Garage-specific service packages."
+    },
+    "/appointment_slots/{slotId}": {
+      "schema": { "$ref": "#/entities/AppointmentSlot" },
+      "description": "Garage appointment slot capacities."
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Service bookings routed to a specific garage."
+    },
+    "/job_cards/{jobCardId}": {
+      "schema": { "$ref": "#/entities/JobCard" },
+      "description": "Garage job cards for assigned mechanics."
+    },
+    "/inspections/{inspectionId}": {
+      "schema": { "$ref": "#/entities/Inspection" },
+      "description": "Vehicle inspection checklists and notes."
+    },
+    "/mechanic_updates/{updateId}": {
+      "schema": { "$ref": "#/entities/MechanicUpdate" },
+      "description": "Timestamped mechanic work progress updates."
+    },
+    "/spare_parts/{partId}": {
+      "schema": { "$ref": "#/entities/SparePart" },
+      "description": "Garage-specific spare part inventory."
+    },
+    "/inventory_logs/{logId}": {
+      "schema": { "$ref": "#/entities/InventoryLog" },
+      "description": "Stock movement audit trail."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/Invoice" },
+      "description": "Customer invoices generated per garage."
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Verified payment records."
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Garage operating expenses."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Verified customer service reviews."
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": { "$ref": "#/entities/SupportTicket" },
+      "description": "Customer support tickets."
+    },
+    "/support_internal_notes/{noteId}": {
+      "schema": { "$ref": "#/entities/SupportInternalNote" },
+      "description": "Staff-only private notes on support tickets."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "In-app notifications per recipient."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable platform audit logs."
+    },
+    "/platform_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/PlatformSetting" },
+      "description": "Platform global settings."
+    }
+  }
+}

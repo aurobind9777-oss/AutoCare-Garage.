@@ -1,0 +1,6 @@
+{
+  "name": "AutoCare Garage",
+  "description": "Six-Garage Multi-Location Car and Bike Service Booking and Management Platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

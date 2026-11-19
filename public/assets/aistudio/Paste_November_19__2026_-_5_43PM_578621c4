@@ -1,0 +1,2302 @@
+AUTOCARE GARAGE – COMPLETE MASTER DEVELOPMENT PROMPT
+
+Six-Garage Multi-Location Management, Online Booking, Garage Acceptance, Customer, Mechanic & Super Admin Platform
+
+Act as a Senior Full-Stack Software Architect, React and TypeScript Developer, Firebase Engineer, Database Architect, UI/UX Designer, Security Engineer, Automotive Service Business Consultant and DevOps Engineer.
+
+Build a complete, premium, responsive and genuinely functional web application named AutoCare Garage.
+
+This is a SIX-GARAGE MULTI-LOCATION AUTOMOTIVE SERVICE MANAGEMENT PLATFORM.
+
+The application must manage exactly six separate garages through one central Super Admin dashboard.
+
+IMPORTANT: Do not build a single-garage application. Do not build only a landing page or frontend demonstration. Build a complete working application with real authentication, database connectivity, booking workflows, booking acceptance, mechanic management, inventory, billing, payments and reporting.
+
+Preserve existing working code and functionality wherever possible.
+
+Do not leave buttons non-functional. Do not create fake bookings, fake payments, fake dashboard statistics or fake Firebase connections.
+
+1. BUSINESS IDENTITY AND PLATFORM STRUCTURE
+
+Business Name: AutoCare Garage
+
+Business Type: Six-Garage Multi-Location Car and Bike Service Platform.
+
+Number of Garages: Exactly 6.
+
+Currency: Indian Rupees (₹).
+
+Tagline: Your Vehicle, Our Responsibility.
+
+The platform must contain:
+
+One Super Admin.
+
+Six independent garages.
+
+Six garage manager dashboards.
+
+Garage-specific mechanic accounts.
+
+One common customer registration system.
+
+One customer dashboard.
+
+Centralized platform management.
+
+Each garage must have its own:
+
+Garage ID.
+
+Name.
+
+Logo and photographs.
+
+Address and contact details.
+
+Operating hours.
+
+Manager.
+
+Mechanics.
+
+Services.
+
+Service packages.
+
+Pricing.
+
+Appointment slots.
+
+Customers' booking records.
+
+Job cards.
+
+Inventory.
+
+Invoices.
+
+Payments.
+
+Expenses.
+
+Revenue reports.
+
+Use demo information only until actual garage details are configured. Never invent real business addresses or contact information.
+
+2. MAIN SUPER ADMIN DASHBOARD – DISPLAY ALL SIX GARAGES
+
+THIS IS A MANDATORY REQUIREMENT.
+
+The main Super Admin dashboard must prominently display all SIX GARAGES.
+
+Create a dedicated dashboard section named:
+
+MY 6 GARAGES
+
+Display six separate garage cards simultaneously.
+
+Each card must display:
+
+Garage photograph.
+
+Garage name.
+
+Garage ID.
+
+Location and address.
+
+Active/Inactive status.
+
+Total bookings.
+
+Pending bookings.
+
+Accepted bookings.
+
+Rejected bookings.
+
+Today's appointments.
+
+Completed services.
+
+Total mechanics.
+
+Monthly revenue.
+
+Every card must contain:
+
+View Dashboard.
+
+Manage Garage.
+
+View Bookings.
+
+Edit Garage.
+
+When Super Admin clicks View Dashboard, open that particular garage's detailed management dashboard.
+
+Design requirements:
+
+Professional six-card grid on desktop.
+
+Responsive cards on mobile.
+
+Search garages.
+
+Filter by active/inactive status.
+
+Garage-wise statistics.
+
+Garage-wise booking comparison.
+
+Garage-wise revenue comparison.
+
+Garage performance analytics.
+
+All statistics must come from real Firestore records.
+
+Do not hide the six garages inside another page or menu. They must be visible directly on the main Super Admin dashboard.
+
+3. SIX INDEPENDENT GARAGE MANAGEMENT SYSTEMS
+
+Create six independent garage management environments within the same platform.
+
+Garage 1, Garage 2, Garage 3, Garage 4, Garage 5 and Garage 6 must each have separate records and management permissions.
+
+Each garage must maintain its own:
+
+Manager account.
+
+Mechanic accounts.
+
+Booking requests.
+
+Accepted and rejected bookings.
+
+Customers' service records.
+
+Appointment schedules.
+
+Service packages.
+
+Service pricing.
+
+Job cards.
+
+Inspection reports.
+
+Inventory and spare parts.
+
+Invoices.
+
+Payments.
+
+Expenses.
+
+Revenue reports.
+
+Every garage-specific database record must contain the correct garageId.
+
+Example:
+
+If a customer books Garage 3:
+
+The booking must be saved against Garage 3.
+
+Only Garage 3's manager receives the request.
+
+Only Garage 3's manager can accept or reject it.
+
+The booking must appear in Garage 3's dashboard.
+
+It must not appear in other garage managers' booking lists.
+
+The Super Admin can monitor all six garages.
+
+No garage manager may access another garage's private records.
+
+4. USER ROLES AND DASHBOARDS
+
+Create four separate roles:
+
+Super Admin.
+
+Garage Manager.
+
+Mechanic.
+
+Customer.
+
+Use protected routes, secure permissions and role-based navigation.
+
+A. SUPER ADMIN DASHBOARD
+
+Super Admin has complete control over the platform.
+
+Sidebar:
+
+Executive Dashboard.
+
+My 6 Garages.
+
+Garage Management.
+
+All Bookings.
+
+Customer Management.
+
+Garage Managers.
+
+Mechanic Management.
+
+Vehicle Management.
+
+Service Management.
+
+Service Packages.
+
+Job Cards.
+
+Inspection Reports.
+
+Inventory Overview.
+
+Spare Parts.
+
+Billing and Invoices.
+
+Payment Management.
+
+Expenses.
+
+Revenue Analytics.
+
+Customer Reviews.
+
+Support Tickets.
+
+Notifications.
+
+Reports and Exports.
+
+Platform Settings.
+
+Audit Logs.
+
+Logout.
+
+Dashboard metrics:
+
+Total Revenue.
+
+Today's Revenue.
+
+Monthly Revenue.
+
+Total Customers.
+
+Total Vehicles.
+
+Total Garages.
+
+Total Bookings.
+
+Pending Bookings.
+
+Accepted Bookings.
+
+Rejected Bookings.
+
+Active Jobs.
+
+Completed Services.
+
+Total Mechanics.
+
+Pending Payments.
+
+Total Expenses.
+
+Low Stock Alerts.
+
+Super Admin permissions:
+
+Create and manage all six garages.
+
+Activate and deactivate garages.
+
+Create garage managers.
+
+Assign managers.
+
+View all bookings.
+
+Monitor booking acceptance and rejection.
+
+Manage customers.
+
+Manage mechanics.
+
+View all service records.
+
+Monitor garage-wise revenue.
+
+Compare performance.
+
+View consolidated financial reports.
+
+Access all individual garage dashboards.
+
+Review audit logs.
+
+B. GARAGE MANAGER DASHBOARD
+
+Each garage manager must have a separate dashboard.
+
+A manager must only access their assigned garage.
+
+Sidebar:
+
+Overview.
+
+New Booking Requests.
+
+Accepted Bookings.
+
+Rejected Bookings.
+
+Reschedule Requests.
+
+Today's Appointments.
+
+Customer Management.
+
+Vehicle Management.
+
+Mechanic Management.
+
+Service Management.
+
+Service Packages.
+
+Appointment Slots.
+
+Job Cards.
+
+Vehicle Inspection.
+
+Inventory.
+
+Spare Parts.
+
+Billing and Invoices.
+
+Payments.
+
+Expenses.
+
+Revenue Reports.
+
+Notifications.
+
+Settings.
+
+Logout.
+
+Dashboard cards:
+
+Total Bookings.
+
+Pending Requests.
+
+Accepted Bookings.
+
+Rejected Bookings.
+
+Today's Appointments.
+
+Active Jobs.
+
+Completed Services.
+
+Available Mechanics.
+
+Monthly Revenue.
+
+Pending Payments.
+
+Low Stock Alerts.
+
+Manager permissions:
+
+Accept booking requests.
+
+Reject booking requests.
+
+Request rescheduling.
+
+Assign mechanics.
+
+Reassign mechanics.
+
+Manage appointment slots.
+
+Manage services and prices.
+
+Manage packages.
+
+Manage inventory.
+
+Review mechanic work.
+
+Generate invoices.
+
+Record verified payments.
+
+View garage-specific reports.
+
+Managers cannot access other garages.
+
+C. MECHANIC DASHBOARD
+
+Mechanics must belong to a particular garage.
+
+Dashboard cards:
+
+Assigned Jobs.
+
+Today's Appointments.
+
+Pending Inspections.
+
+Work In Progress.
+
+Completed Jobs.
+
+Jobs Waiting for Parts.
+
+Sidebar:
+
+Overview.
+
+My Assigned Jobs.
+
+Today's Schedule.
+
+Vehicle Inspection.
+
+Repair Checklist.
+
+Spare Parts Used.
+
+Work Progress.
+
+Service History.
+
+Profile.
+
+Logout.
+
+Mechanic functions:
+
+View assigned bookings.
+
+View customer and vehicle details necessary for work.
+
+View customer complaints.
+
+Perform vehicle inspections.
+
+Add inspection notes.
+
+Create repair checklists.
+
+Record required repairs.
+
+Record spare parts used.
+
+Add labour notes.
+
+Update job progress.
+
+Upload inspection photographs.
+
+Submit completed work for manager approval.
+
+Mechanics cannot:
+
+Accept or reject customer bookings.
+
+Change service prices.
+
+Modify customer accounts.
+
+Manage other mechanics.
+
+Approve their own permissions.
+
+Approve payments.
+
+Access other garages.
+
+Delete completed job records.
+
+Record every mechanic update with timestamp and mechanic ID.
+
+D. CUSTOMER DASHBOARD
+
+Create a separate customer dashboard.
+
+Sidebar:
+
+Overview.
+
+My Profile.
+
+My Vehicles.
+
+Find a Garage.
+
+Book a Service.
+
+My Bookings.
+
+Booking Status.
+
+Track My Service.
+
+Service History.
+
+My Invoices.
+
+Payment History.
+
+Reviews.
+
+Support.
+
+Settings.
+
+Logout.
+
+Dashboard cards:
+
+Total Bookings.
+
+Pending Bookings.
+
+Accepted Bookings.
+
+Upcoming Appointments.
+
+Vehicles Registered.
+
+Completed Services.
+
+Pending Payments.
+
+Customers must see only their own personal records, vehicles, bookings, invoices and payments.
+
+5. PUBLIC WEBSITE AND SIX GARAGE DISPLAY
+
+Create a premium automotive service website.
+
+Design:
+
+Dark navy and white theme.
+
+Red accent colour.
+
+Professional automotive photography.
+
+Modern typography.
+
+Clean cards.
+
+Responsive navigation.
+
+Mobile-first design.
+
+Smooth animations.
+
+Professional dashboards.
+
+Homepage sections:
+
+Announcement Bar.
+
+Header and Logo.
+
+Navigation Menu.
+
+Hero Section with Car and Bike Images.
+
+Book a Service CTA.
+
+Our Six Garages.
+
+Our Services.
+
+Why Choose AutoCare Garage.
+
+How It Works.
+
+Car Service Packages.
+
+Bike Service Packages.
+
+Customer Testimonials.
+
+FAQs.
+
+Contact and Location.
+
+Footer.
+
+Public pages:
+
+Home.
+
+About Us.
+
+Services.
+
+Car Services.
+
+Bike Services.
+
+Service Packages.
+
+Find a Garage.
+
+Garage Details.
+
+Book Appointment.
+
+Contact Us.
+
+Login.
+
+Register.
+
+Privacy Policy.
+
+Terms and Conditions.
+
+FIND YOUR GARAGE PAGE
+
+Display all six garages.
+
+Each card must contain:
+
+Garage photograph.
+
+Garage name.
+
+Location.
+
+Full address.
+
+Contact details.
+
+Operating hours.
+
+Available services.
+
+Starting service prices.
+
+Availability status.
+
+View Details.
+
+Book Now.
+
+Customers must be able to compare and select their preferred garage.
+
+Only active garages can receive new bookings.
+
+6. FIREBASE AUTHENTICATION
+
+Use Firebase Authentication.
+
+Implement:
+
+Email and password registration.
+
+Email and password login.
+
+Google Sign-In.
+
+Logout.
+
+Forgot password.
+
+Password reset.
+
+Email verification.
+
+Protected routes.
+
+Google authentication must include:
+
+GoogleAuthProvider.
+
+signInWithPopup.
+
+signInWithRedirect fallback.
+
+getRedirectResult.
+
+Unauthorized-domain error handling.
+
+Popup-blocked error handling.
+
+Clear error messages.
+
+After registration, create the customer profile in Firestore.
+
+Default public registration role: customer.
+
+Never allow users to assign themselves manager, mechanic or Super Admin roles.
+
+Do not store passwords in Firestore.
+
+Garage managers and mechanics must receive authorized accounts created through the secure Super Admin process.
+
+7. CUSTOMER PROFILE AND VEHICLE MANAGEMENT
+
+PROFILE:
+
+View and edit personal information.
+
+Update phone number.
+
+Update email where supported by Firebase.
+
+Manage saved addresses.
+
+VEHICLE MANAGEMENT:
+
+Customers can add, edit and remove their vehicles.
+
+Vehicle fields:
+
+Vehicle type: Car or Bike.
+
+Registration number.
+
+Brand.
+
+Model.
+
+Variant.
+
+Fuel type.
+
+Manufacturing year.
+
+Current odometer reading.
+
+Optional vehicle photograph.
+
+Keep complete vehicle service history.
+
+Display the correct vehicle information during booking.
+
+8. COMPLETE SIX-GARAGE BOOKING SYSTEM
+
+THIS IS THE MOST IMPORTANT MODULE.
+
+Build a fully functional online booking system for all six garages.
+
+The customer booking process must follow this exact sequence:
+
+STEP 1: Customer logs in.
+
+STEP 2: Customer selects a registered vehicle.
+
+STEP 3: Customer selects one of the six active garages.
+
+STEP 4: Customer views services available at that garage.
+
+STEP 5: Customer selects service category.
+
+STEP 6: Customer selects service package.
+
+STEP 7: Customer selects appointment date.
+
+STEP 8: Customer selects an available time slot.
+
+STEP 9: Customer describes the vehicle problem.
+
+STEP 10: Customer uploads optional vehicle photographs.
+
+STEP 11: Customer reviews the booking details.
+
+STEP 12: Customer clicks Submit Booking.
+
+STEP 13: Generate a unique booking ID.
+
+STEP 14: Save the booking in Firestore with the correct garageId and customerId.
+
+STEP 15: Initial status must be PENDING.
+
+STEP 16: Notify only the selected garage manager.
+
+STEP 17: Display the booking in the customer's My Bookings page.
+
+Booking form fields:
+
+Customer name.
+
+Contact number.
+
+Selected garage.
+
+Vehicle type.
+
+Vehicle registration number.
+
+Vehicle brand.
+
+Vehicle model.
+
+Service category.
+
+Service package.
+
+Problem description.
+
+Appointment date.
+
+Appointment time.
+
+Optional photographs.
+
+IMPORTANT GARAGE ROUTING RULE:
+
+If the customer selects Garage 4, the booking must be routed exclusively to Garage 4.
+
+Never route bookings to all six managers.
+
+Never save a booking without a valid garageId.
+
+Never silently change the customer's selected garage.
+
+9. BOOKING ACCEPTANCE, REJECTION AND RESCHEDULING
+
+THIS WORKFLOW MUST BE FULLY FUNCTIONAL.
+
+Each garage manager must have a dedicated New Booking Requests section.
+
+When a customer submits a booking, the selected garage manager receives an in-app notification.
+
+Every incoming request must display:
+
+Booking ID.
+
+Customer name.
+
+Contact number.
+
+Vehicle type.
+
+Registration number.
+
+Brand and model.
+
+Requested service.
+
+Selected package.
+
+Appointment date.
+
+Appointment time.
+
+Customer complaint.
+
+Uploaded photographs.
+
+Booking submission timestamp.
+
+Provide three clearly visible actions:
+
+ACCEPT BOOKING.
+
+REJECT BOOKING.
+
+REQUEST RESCHEDULE.
+
+ACCEPT BOOKING
+
+When the correct garage manager clicks Accept Booking:
+
+Validate the manager's identity.
+
+Validate the manager's garageId.
+
+Verify that the booking belongs to that garage.
+
+Recheck appointment slot availability.
+
+Validate that the booking is still pending.
+
+Save acceptance in Firestore using a secure server-side operation.
+
+Record manager ID.
+
+Record acceptance timestamp.
+
+Update booking status to ACCEPTED or CONFIRMED according to the defined workflow.
+
+Update appointment availability.
+
+Notify the customer.
+
+Display accepted status in My Bookings.
+
+Make the booking available for mechanic assignment.
+
+Show a clear success message only after Firestore confirms the operation.
+
+REJECT BOOKING
+
+When the correct garage manager clicks Reject Booking:
+
+Open a rejection confirmation dialog.
+
+Require a rejection reason.
+
+Validate garage ownership.
+
+Save rejection reason.
+
+Record manager ID.
+
+Record rejection timestamp.
+
+Change status to REJECTED.
+
+Release the reserved appointment slot if applicable.
+
+Notify the customer.
+
+Display rejection reason in the customer dashboard.
+
+REQUEST RESCHEDULE
+
+The manager can suggest an alternative date or time.
+
+Provide a suggested date.
+
+Provide a suggested time.
+
+Check availability.
+
+Notify the customer.
+
+Allow customer to accept or decline.
+
+Update the appointment only after the customer's response.
+
+Preserve the booking history.
+
+BOOKING STATUS SYSTEM
+
+Use these statuses:
+
+Pending.
+
+Accepted.
+
+Rejected.
+
+Reschedule Requested.
+
+Confirmed.
+
+Mechanic Assigned.
+
+Vehicle Received.
+
+Inspection.
+
+Estimate Prepared.
+
+Awaiting Customer Approval.
+
+Work In Progress.
+
+Waiting for Parts.
+
+Quality Check.
+
+Ready for Pickup.
+
+Completed.
+
+Cancellation Requested.
+
+Cancelled.
+
+Maintain a complete timestamped status history.
+
+BOOKING SECURITY:
+
+Managers can only accept their own garage bookings.
+
+Managers cannot accept the same booking twice.
+
+Mechanics cannot accept bookings.
+
+Customers cannot directly modify booking status.
+
+A rejected booking cannot be reopened without an authorized operation.
+
+Super Admin can monitor all bookings.
+
+All important actions must be recorded in audit logs.
+
+10. INDEPENDENT APPOINTMENT SLOT MANAGEMENT
+
+Every garage must have its own appointment calendar.
+
+Features:
+
+Configure garage operating hours.
+
+Configure appointment duration.
+
+Create available time slots.
+
+Set daily booking capacity.
+
+Disable unavailable dates.
+
+Manage holidays.
+
+Manage breaks.
+
+View daily schedules.
+
+Prevent double booking.
+
+Prevent overbooking.
+
+Show real-time available slots.
+
+Use secure server-side validation and Firestore transactions.
+
+Do not depend only on frontend availability checks.
+
+Recheck the slot during booking submission and acceptance.
+
+Define slot reservation and release rules clearly so rejected or cancelled requests do not block availability indefinitely.
+
+11. SERVICE MANAGEMENT AND PRICING
+
+Each garage must manage its own available services and packages.
+
+CAR SERVICES:
+
+Basic Car Service.
+
+Standard Car Service.
+
+Premium Car Service.
+
+Engine Inspection.
+
+Oil Change.
+
+Brake Inspection and Repair.
+
+Battery Inspection.
+
+Tyre Replacement.
+
+Wheel Alignment and Balancing.
+
+AC Servicing.
+
+Washing and Detailing.
+
+Electrical Repairs.
+
+Periodic Maintenance.
+
+Vehicle Diagnostics.
+
+BIKE SERVICES:
+
+Basic Bike Service.
+
+Standard Bike Service.
+
+Premium Bike Service.
+
+Engine Oil Change.
+
+Brake Service.
+
+Battery Inspection.
+
+Tyre Replacement.
+
+Bike Washing.
+
+General Repairs.
+
+Example packages:
+
+Car:
+
+Basic Car Service.
+
+Standard Car Service.
+
+Premium Car Service.
+
+Car AC Service.
+
+Brake Service.
+
+Car Wash and Detailing.
+
+Bike:
+
+Basic Bike Service.
+
+Standard Bike Service.
+
+Premium Bike Service.
+
+Engine Oil Change.
+
+Brake Service.
+
+Bike Wash.
+
+Every package must contain:
+
+Package name.
+
+Garage ID.
+
+Vehicle type.
+
+Included services.
+
+Starting price.
+
+Estimated duration.
+
+Description.
+
+Availability.
+
+All initial prices must be marked as demo estimates.
+
+Managers can manage packages only within their own garages.
+
+Super Admin can monitor all garage packages.
+
+Allow separate labour and spare parts charges.
+
+12. MECHANIC ASSIGNMENT AND JOB CARD SYSTEM
+
+After a booking is accepted, the garage manager can assign an available mechanic from the same garage.
+
+Job card fields:
+
+Job card ID.
+
+Booking ID.
+
+Garage ID.
+
+Customer ID.
+
+Vehicle details.
+
+Assigned mechanic.
+
+Customer complaint.
+
+Inspection results.
+
+Work recommended.
+
+Work approved by customer.
+
+Labour charges.
+
+Spare parts charges.
+
+Estimated completion.
+
+Actual completion.
+
+Job status.
+
+Workflow:
+
+Booking Accepted
+→ Mechanic Assigned
+→ Vehicle Received
+→ Inspection
+→ Estimate Prepared
+→ Customer Approval
+→ Repair Started
+→ Quality Check
+→ Manager Approval
+→ Ready for Pickup
+→ Completed.
+
+Do not perform additional paid work without recorded customer approval.
+
+13. VEHICLE INSPECTION AND REPAIR TRACKING
+
+Mechanics must be able to:
+
+Start inspection.
+
+Add inspection notes.
+
+Create repair checklists.
+
+Record required work.
+
+Add recommended repairs.
+
+Record spare parts used.
+
+Add labour notes.
+
+Upload permitted photographs.
+
+Update repair progress.
+
+Mark work completed.
+
+Submit for manager quality approval.
+
+Customers must be able to track service progress from their dashboard.
+
+Record every update with:
+
+User ID.
+
+Garage ID.
+
+Booking ID.
+
+Timestamp.
+
+Status.
+
+Notes.
+
+14. INVENTORY AND SPARE PARTS MANAGEMENT
+
+Maintain completely separate inventory for all six garages.
+
+Spare part fields:
+
+Part ID.
+
+Garage ID.
+
+Part name.
+
+SKU.
+
+Category.
+
+Brand.
+
+Purchase price.
+
+Selling price.
+
+Quantity in stock.
+
+Minimum stock level.
+
+Supplier.
+
+Created date.
+
+Features:
+
+Add spare parts.
+
+Edit spare parts.
+
+Deactivate inactive items.
+
+Record stock purchases.
+
+Record stock usage.
+
+Low stock alerts.
+
+Out-of-stock alerts.
+
+Stock movement history.
+
+Search and filters.
+
+CSV export.
+
+When mechanics use parts, require appropriate authorization and update inventory safely.
+
+Prevent negative stock.
+
+Super Admin can view consolidated inventory reports.
+
+15. BILLING AND INVOICE MANAGEMENT
+
+Create a professional invoice system for all six garages.
+
+Invoice details:
+
+Garage logo.
+
+Garage name.
+
+Garage contact details.
+
+Invoice number.
+
+Invoice date.
+
+Customer information.
+
+Vehicle details.
+
+Booking ID.
+
+Job card ID.
+
+Service description.
+
+Labour charges.
+
+Spare parts charges.
+
+Discount.
+
+Applicable tax fields.
+
+Final total.
+
+Payment method.
+
+Payment status.
+
+Generate downloadable PDF invoices.
+
+Use unique invoice numbers and garage associations.
+
+Customers can view and download their invoices.
+
+Managers can generate invoices for their own garages.
+
+Super Admin can view all invoices.
+
+16. PAYMENT MANAGEMENT
+
+Payment methods:
+
+Cash.
+
+UPI.
+
+Card recorded manually.
+
+Other manual payment.
+
+Payment statuses:
+
+Pending.
+
+Partially Paid.
+
+Paid.
+
+Refunded.
+
+Features:
+
+Record payments.
+
+Verify payment details.
+
+Maintain payment history.
+
+Calculate outstanding amounts.
+
+Display customer payment history.
+
+Generate payment reports.
+
+Do not integrate fake payment gateways.
+
+Do not automatically mark payments as paid.
+
+Only authorized staff can verify and record actual payments.
+
+Every payment must have the correct garageId.
+
+17. EXPENSE AND REVENUE MANAGEMENT
+
+Each garage must maintain separate financial records.
+
+Expense categories:
+
+Spare parts purchases.
+
+Mechanic salaries.
+
+Rent.
+
+Electricity.
+
+Equipment expenses.
+
+Maintenance.
+
+Other operating expenses.
+
+Dashboard calculations:
+
+Total Revenue.
+
+Total Expenses.
+
+Gross Profit.
+
+Outstanding Payments.
+
+Daily Revenue.
+
+Monthly Revenue.
+
+Service-wise Revenue.
+
+Payment Method Distribution.
+
+Revenue must include only verified collected payments.
+
+Keep revenue and expenses separate.
+
+Do not count pending payments as collected revenue.
+
+Super Admin must see:
+
+Garage 1 financial report.
+
+Garage 2 financial report.
+
+Garage 3 financial report.
+
+Garage 4 financial report.
+
+Garage 5 financial report.
+
+Garage 6 financial report.
+
+Consolidated platform report.
+
+18. CUSTOMER REVIEWS AND SUPPORT
+
+REVIEWS:
+
+Rating from 1 to 5.
+
+Review text.
+
+Booking reference.
+
+Garage ID.
+
+Submission date.
+
+Only customers with completed services can submit verified reviews.
+
+SUPPORT TICKETS:
+
+Ticket ID.
+
+Customer ID.
+
+Garage ID.
+
+Booking reference.
+
+Subject.
+
+Message.
+
+Priority.
+
+Status.
+
+Replies.
+
+Created date.
+
+The correct garage manager can reply to their garage's tickets.
+
+Super Admin can monitor all support tickets.
+
+Internal notes must remain private.
+
+19. NOTIFICATION SYSTEM
+
+Implement real Firestore-based in-app notifications.
+
+CUSTOMER NOTIFICATIONS:
+
+Booking received.
+
+Booking accepted.
+
+Booking rejected.
+
+Reschedule suggested.
+
+Appointment confirmed.
+
+Mechanic assigned.
+
+Vehicle inspection completed.
+
+Estimate ready.
+
+Customer approval requested.
+
+Work started.
+
+Work completed.
+
+Invoice generated.
+
+Payment recorded.
+
+Booking cancelled.
+
+GARAGE MANAGER NOTIFICATIONS:
+
+New booking request.
+
+Customer cancellation.
+
+Reschedule request.
+
+New support ticket.
+
+Mechanic work update.
+
+SUPER ADMIN NOTIFICATIONS:
+
+New garage activity.
+
+Pending bookings.
+
+Garage performance alerts.
+
+Low inventory alerts.
+
+Platform issues.
+
+Notifications must be stored in Firestore and associated with the correct recipient and garage.
+
+Do not integrate paid SMS or WhatsApp services.
+
+20. FIREBASE DATABASE ARCHITECTURE
+
+Use:
+
+Firebase Authentication.
+
+Cloud Firestore.
+
+Firebase Storage where available.
+
+Firestore Security Rules.
+
+Required Firestore indexes.
+
+Firebase Admin SDK.
+
+Secure backend operations.
+
+Create these collections:
+
+users
+
+customers
+
+garages
+
+garage_managers
+
+garage_mechanics
+
+vehicles
+
+service_categories
+
+service_packages
+
+bookings
+
+appointment_slots
+
+job_cards
+
+inspections
+
+repair_checklists
+
+mechanic_updates
+
+spare_parts
+
+inventory_logs
+
+suppliers
+
+invoices
+
+payments
+
+expenses
+
+reviews
+
+support_tickets
+
+support_messages
+
+notifications
+
+audit_logs
+
+platform_settings
+
+Every garage-specific document must contain:
+
+garageId.
+
+createdAt.
+
+updatedAt.
+
+Relevant user ID.
+
+Relevant booking or job ID where applicable.
+
+Use:
+
+Consistent document IDs.
+
+Server timestamps.
+
+Typed data models.
+
+Reusable Firebase service functions.
+
+Secure file upload paths.
+
+Firestore transactions for critical operations.
+
+Required composite indexes.
+
+Design the data model to support secure querying by garage and user.
+
+If Firebase is not connected, build the architecture first and request the exact Firebase Project ID or authorized setup.
+
+Never claim Firebase is connected until verified.
+
+21. FIREBASE SECURITY AND ROLE PERMISSIONS
+
+Implement strict role-based access.
+
+Roles:
+
+super_admin
+
+garage_manager
+
+mechanic
+
+customer
+
+Security requirements:
+
+Customers can access only their own profiles, vehicles, bookings and invoices.
+
+Garage managers can access only their assigned garage.
+
+Mechanics can access only their assigned jobs and necessary customer information.
+
+Mechanics cannot change service prices.
+
+Mechanics cannot approve payments.
+
+Managers cannot access another garage.
+
+Managers cannot change their own roles.
+
+Super Admin can manage all six garages.
+
+Customers cannot directly change booking status.
+
+Customers cannot change invoice totals.
+
+Audit logs cannot be modified by ordinary users.
+
+No public registration can create an admin account.
+
+Use Firebase custom claims or secure server-side role verification.
+
+Verify Firebase ID tokens in protected backend operations.
+
+Never trust frontend role values.
+
+Never expose Firebase Admin credentials in frontend code.
+
+Implement controlled Super Admin account creation.
+
+Use Firestore Security Rules to enforce customer-level and garage-level data isolation.
+
+Remember that Firebase Admin SDK bypasses Firestore Security Rules. Therefore, every privileged server operation must independently validate identity, role, garage ownership and allowed status transitions.
+
+22. TECHNICAL STACK AND PROJECT ARCHITECTURE
+
+Use:
+
+React.
+
+TypeScript.
+
+Vite.
+
+Tailwind CSS.
+
+Lucide React.
+
+Firebase Authentication.
+
+Cloud Firestore.
+
+Firebase Storage.
+
+Firebase Admin SDK.
+
+Vercel serverless functions where appropriate.
+
+Requirements:
+
+Clean folder architecture.
+
+Reusable components.
+
+Protected routes.
+
+Separate dashboard layouts.
+
+Secure backend operations.
+
+Form validation.
+
+Loading states.
+
+Empty states.
+
+Error states.
+
+Success notifications.
+
+Responsive layouts.
+
+Proper TypeScript types.
+
+Reusable API and Firebase service functions.
+
+Inspect the existing workspace before modifying it.
+
+Preserve working functionality and existing business information.
+
+Do not overwrite or delete working code without understanding its purpose.
+
+23. UI/UX AND RESPONSIVE DESIGN
+
+Use a professional automotive design system.
+
+Colours:
+
+Dark navy.
+
+White.
+
+Red accent.
+
+Requirements:
+
+Professional typography.
+
+Premium dashboard cards.
+
+Clean tables.
+
+Responsive sidebars.
+
+Automotive photography.
+
+Clear status badges.
+
+Smooth transitions.
+
+Consistent spacing.
+
+Mobile-friendly forms.
+
+The six garage cards must be prominent.
+
+The booking acceptance and rejection buttons must be clearly visible.
+
+Use confirmation dialogs for important actions.
+
+Every button, navigation link and form must perform its advertised action.
+
+Display real loading, success and failure messages.
+
+Do not use fake static dashboard statistics.
+
+24. ZERO-COST REQUIREMENTS
+
+This is a college/business demonstration project.
+
+Prefer:
+
+Firebase Spark plan where supported.
+
+GitHub Free.
+
+Vercel Hobby.
+
+Free libraries.
+
+Free development tools.
+
+Do not:
+
+Enable paid billing automatically.
+
+Upgrade Firebase automatically.
+
+Purchase domains.
+
+Integrate paid APIs.
+
+Integrate paid SMS or WhatsApp.
+
+Integrate paid payment gateways.
+
+Respect Firebase and Vercel usage limits.
+
+If a feature requires a paid service, explain it and provide a working free alternative where possible.
+
+Do not assume every Firebase feature is available on the free plan. Verify service and quota requirements before implementing it.
+
+25. GITHUB PUBLICATION
+
+Create a separate GitHub repository:
+
+Repository Name: AutoCare-Garage
+
+Description: Six-Garage Multi-Location Car and Bike Service Booking and Management Platform.
+
+Branch: main.
+
+Visibility: Public only after security review and explicit confirmation.
+
+Before pushing:
+
+Create README.md.
+
+Create .gitignore.
+
+Create .env.example.
+
+Exclude .env files.
+
+Exclude Firebase service-account JSON.
+
+Exclude private keys.
+
+Exclude passwords.
+
+Exclude customer personal data.
+
+Scan the repository for secrets.
+
+Never upload Firebase Admin credentials.
+
+Push the complete tested application source code.
+
+If GitHub authorization is missing, request connection through the official interface.
+
+26. VERCEL DEPLOYMENT
+
+Create Vercel project:
+
+autocare-garage
+
+Configuration:
+
+Framework: Vite.
+
+Build command: npm run build.
+
+Output directory: dist.
+
+Production branch: main.
+
+Requirements:
+
+Connect GitHub repository.
+
+Configure public Firebase environment variables.
+
+Keep private server credentials in protected server-side environment variables.
+
+Add deployed Vercel domain to Firebase Authentication authorized domains.
+
+Verify:
+
+Deployment status Ready.
+
+Public website opens.
+
+Customer registration works.
+
+Customer login works.
+
+Google login works.
+
+Six garages display.
+
+Garage selection works.
+
+Booking submission works.
+
+Correct garage receives booking.
+
+Booking acceptance works.
+
+Booking rejection works.
+
+Customer notifications work.
+
+Mechanic assignment works.
+
+Inventory updates work.
+
+Invoice generation works.
+
+Firestore records persist.
+
+Cross-garage security works.
+
+Mobile website works.
+
+Never claim successful deployment without actual confirmation.
+
+27. MANDATORY END-TO-END TESTING
+
+Test all six garages independently.
+
+CUSTOMER TEST
+
+Register
+→ Login
+→ Add Vehicle
+→ Find a Garage
+→ View Six Garages
+→ Select Garage 1
+→ Select Service
+→ Select Package
+→ Select Date and Time
+→ Submit Booking
+→ Receive Booking ID
+→ View Pending Status.
+
+GARAGE MANAGER ACCEPTANCE TEST
+
+Login as Garage 1 Manager
+→ Open New Booking Requests
+→ View Customer Booking
+→ Verify Garage ID
+→ Accept Booking
+→ Verify Firestore Status
+→ Notify Customer
+→ Assign Mechanic
+→ Track Job.
+
+CUSTOMER CONFIRMATION TEST
+
+Customer Login
+→ My Bookings
+→ View Accepted Status
+→ View Assigned Mechanic
+→ Track Service Progress
+→ View Invoice
+→ View Payment Status.
+
+BOOKING REJECTION TEST
+
+Customer submits booking to Garage 2
+→ Garage 2 Manager receives request
+→ Manager rejects booking with reason
+→ Booking status becomes Rejected
+→ Customer receives notification
+→ Customer sees rejection reason.
+
+RESCHEDULING TEST
+
+Customer submits booking
+→ Garage manager suggests another time
+→ Customer receives suggestion
+→ Customer accepts or declines
+→ Availability is checked
+→ Booking history is updated.
+
+CROSS-GARAGE SECURITY TEST
+
+Garage 1 manager cannot view Garage 2 bookings.
+
+Garage 2 manager cannot modify Garage 1 bookings.
+
+Garage 3 mechanic cannot view Garage 4 jobs.
+
+Customers cannot access another customer's records.
+
+Super Admin can view all six garages.
+
+No unauthorized role can accept or reject bookings.
+
+REPEAT the complete booking, acceptance, rejection, notification and tracking tests for all six garages.
+
+Also test:
+
+Duplicate booking prevention.
+
+Appointment slot conflicts.
+
+Concurrent booking submissions.
+
+Booking cancellation.
+
+Rescheduling.
+
+Mechanic assignment.
+
+Job card creation.
+
+Inventory updates.
+
+Negative stock prevention.
+
+Invoice generation.
+
+Payment verification.
+
+Revenue calculations.
+
+Customer data isolation.
+
+Firestore Security Rules.
+
+CSV export.
+
+Mobile responsiveness.
+
+Run TypeScript checks and production build.
+
+Fix all critical errors before deployment.
+
+28. EXECUTION ORDER
+
+PHASE 1: Inspect existing workspace and preserve working code.
+
+PHASE 2: Create the multi-garage database architecture.
+
+PHASE 3: Implement Firebase authentication and role permissions.
+
+PHASE 4: Build the Super Admin dashboard.
+
+PHASE 5: Display all six garage cards on the main dashboard.
+
+PHASE 6: Build six individual garage manager dashboards.
+
+PHASE 7: Build the public website and Find Your Garage page.
+
+PHASE 8: Build customer registration and dashboard.
+
+PHASE 9: Implement the six-garage booking system.
+
+PHASE 10: Implement booking acceptance, rejection and rescheduling.
+
+PHASE 11: Implement independent appointment slots.
+
+PHASE 12: Build mechanic dashboard and assignments.
+
+PHASE 13: Build job cards, inspection and repair tracking.
+
+PHASE 14: Build garage-wise inventory and spare parts.
+
+PHASE 15: Build invoices, payments and expenses.
+
+PHASE 16: Build analytics and notifications.
+
+PHASE 17: Implement and deploy Firebase Security Rules.
+
+PHASE 18: Test all six garages independently.
+
+PHASE 19: Fix errors and verify all workflows.
+
+PHASE 20: Create and publish safe GitHub repository.
+
+PHASE 21: Deploy to Vercel.
+
+PHASE 22: Perform live production testing.
+
+Do not stop after creating a plan or frontend.
+
+Complete and test each phase before claiming it is finished.
+
+29. FINAL ACCEPTANCE CRITERIA
+
+The application is complete only when:
+
+Public website works.
+
+Customer registration works.
+
+Customer login works.
+
+Google login works.
+
+Customer dashboard works.
+
+Mechanic dashboard works.
+
+Super Admin dashboard works.
+
+All six garages display on the main Super Admin dashboard.
+
+Six independent garage dashboards work.
+
+Garage managers have separate accounts.
+
+Garage-specific services and pricing work.
+
+Vehicle management works.
+
+Customers can select any active garage.
+
+Customers can submit bookings.
+
+Every booking is routed to the correct garage.
+
+Booking status initially becomes Pending.
+
+The correct garage manager can accept bookings.
+
+The correct garage manager can reject bookings.
+
+Rejection reasons reach customers.
+
+Rescheduling works.
+
+Customers receive accurate status notifications.
+
+Appointment slots cannot be double-booked.
+
+Mechanic assignment works.
+
+Mechanics can access only assigned jobs.
+
+Job cards work.
+
+Inspection and repair tracking work.
+
+Inventory is garage-specific.
+
+Spare parts tracking works.
+
+Invoice generation works.
+
+Payment tracking works.
+
+Expense management works.
+
+Customer support works.
+
+Garage-wise revenue reports work.
+
+Super Admin consolidated reporting works.
+
+Firestore data persists.
+
+Role-based security works.
+
+Cross-garage data isolation works.
+
+Firestore Security Rules are deployed.
+
+Critical tests pass.
+
+GitHub contains safe source code.
+
+Vercel deployment is Ready.
+
+Live production website passes smoke tests.
+
+30. FINAL NON-NEGOTIABLE INSTRUCTIONS
+
+Build AutoCare Garage as a complete, secure, SIX-GARAGE MULTI-LOCATION MANAGEMENT PLATFORM.
+
+The main Super Admin dashboard must display all six garages directly.
+
+Every garage must operate independently.
+
+Every garage must have its own bookings, manager, mechanics, services, appointment slots, inventory, invoices and revenue records.
+
+Every customer must be able to select their preferred garage before booking.
+
+Every submitted booking must reach the correct garage manager.
+
+Every garage manager must be able to accept, reject or request rescheduling for their own garage's bookings.
+
+Customers must receive accurate booking status updates.
+
+No booking should go to the wrong garage.
+
+No manager should access another garage's private records.
+
+No fake bookings, fake acceptance, fake payment confirmations, hardcoded statistics, insecure role permissions or false deployment confirmations.
+
+Preserve existing working functionality and integrate the complete six-garage architecture without breaking the existing application.
+
+If credentials, permissions or external configuration are missing, request the required authorization through the official interface. Never ask for passwords or private keys in chat.
+
+Deliver a genuinely functional, premium-looking and responsive AutoCare Garage platform with a public website, six garages, Super Admin dashboard, six garage manager dashboards, Customer Dashboard, Mechanic Dashboard, Firebase Authentication, Google Sign-In, Firestore database, online service booking, booking acceptance and rejection, mechanic workflows, inventory, invoices, payments, GitHub publication and Vercel deployment.
+
+FINAL GOAL: A COMPLETE WORKING SIX-GARAGE AUTOCARE GARAGE MANAGEMENT AND ONLINE BOOKING PLATFORM – NOT JUST A FRONTEND DEMO.

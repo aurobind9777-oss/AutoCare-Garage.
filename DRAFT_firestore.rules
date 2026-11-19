@@ -1,0 +1,1177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Primitives & Helpers
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidStr(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'aurobind9777@gmail.com';
+    }
+
+    function isSuperAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true
+      );
+    }
+
+    function isGarageManagerOf(garageId) {
+      return isVerifiedUser() &&
+        isValidId(garageId) &&
+        exists(/databases/$(database)/documents/garages/$(garageId)) &&
+        get(/databases/$(database)/documents/garages/$(garageId)).data.managerUid == request.auth.uid;
+    }
+
+    function isMechanicOf(garageId) {
+      return isVerifiedUser() &&
+        isValidId(garageId) &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'mechanic' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.garageId == garageId &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
+    }
+
+    // 3. Validation Blueprints (isValid[Entity])
+
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'garageId', 'claimedInviteId', 'isActive', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        isValidStr(data.email, 3, 160) &&
+        isValidStr(data.displayName, 1, 120) &&
+        data.role in ['super_admin', 'garage_manager', 'mechanic', 'customer'] &&
+        (!('garageId' in data) || isValidStr(data.garageId, 0, 64)) &&
+        (!('claimedInviteId' in data) || isValidId(data.claimedInviteId)) &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isClaimingValidInvite(inviteId, expectedRole, expectedGarageId) {
+      return isVerifiedUser() &&
+        isValidId(inviteId) &&
+        exists(/databases/$(database)/documents/staff_invites/$(inviteId)) &&
+        get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.email == request.auth.token.email &&
+        get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.status == 'pending' &&
+        get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.role == expectedRole &&
+        get(/databases/$(database)/documents/staff_invites/$(inviteId)).data.garageId == expectedGarageId;
+    }
+
+    function isValidCustomerProfile(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'name', 'email', 'phone', 'address', 'city', 'pincode', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        isValidStr(data.name, 1, 120) &&
+        isValidStr(data.email, 3, 160) &&
+        (!('phone' in data) || isValidStr(data.phone, 0, 30)) &&
+        (!('address' in data) || isValidStr(data.address, 0, 300)) &&
+        (!('city' in data) || isValidStr(data.city, 0, 80)) &&
+        (!('pincode' in data) || isValidStr(data.pincode, 0, 16)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGarage(data) {
+      return data.keys().hasAll(['garageId', 'code', 'name', 'city', 'address', 'phone', 'email', 'operatingHours', 'dailyCapacity', 'slotDurationMins', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['garageId', 'code', 'name', 'city', 'address', 'phone', 'email', 'operatingHours', 'dailyCapacity', 'slotDurationMins', 'photoUrl', 'managerUid', 'managerName', 'isActive', 'isDemoInfo', 'supportedVehicles', 'createdAt', 'updatedAt']) &&
+        isValidId(data.garageId) &&
+        isValidStr(data.code, 2, 24) &&
+        isValidStr(data.name, 2, 120) &&
+        isValidStr(data.city, 2, 80) &&
+        isValidStr(data.address, 4, 300) &&
+        isValidStr(data.phone, 4, 30) &&
+        isValidStr(data.email, 4, 160) &&
+        isValidStr(data.operatingHours, 4, 120) &&
+        data.dailyCapacity is number && data.dailyCapacity >= 1 && data.dailyCapacity <= 100 &&
+        data.slotDurationMins is number && data.slotDurationMins >= 15 && data.slotDurationMins <= 240 &&
+        (!('photoUrl' in data) || isValidStr(data.photoUrl, 0, 500)) &&
+        (!('managerUid' in data) || isValidStr(data.managerUid, 0, 128)) &&
+        (!('managerName' in data) || isValidStr(data.managerName, 0, 120)) &&
+        data.isActive is bool &&
+        (!('isDemoInfo' in data) || data.isDemoInfo is bool) &&
+        (!('supportedVehicles' in data) || (data.supportedVehicles is list && data.supportedVehicles.size() <= 4 && (data.supportedVehicles.size() == 0 || data.supportedVehicles[0] is string))) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStaffInvite(data) {
+      return data.keys().hasAll(['email', 'role', 'garageId', 'name', 'status', 'createdBy', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['email', 'role', 'garageId', 'name', 'phone', 'specialization', 'status', 'createdBy', 'createdAt', 'updatedAt']) &&
+        isValidStr(data.email, 3, 160) &&
+        data.role in ['garage_manager', 'mechanic'] &&
+        isValidId(data.garageId) &&
+        isValidStr(data.name, 1, 120) &&
+        (!('phone' in data) || isValidStr(data.phone, 0, 30)) &&
+        (!('specialization' in data) || isValidStr(data.specialization, 0, 120)) &&
+        data.status in ['pending', 'claimed', 'revoked'] &&
+        isValidId(data.createdBy) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGarageManager(data) {
+      return data.keys().hasAll(['uid', 'garageId', 'name', 'email', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'garageId', 'name', 'email', 'phone', 'isActive', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        isValidId(data.garageId) &&
+        isValidStr(data.name, 1, 120) &&
+        isValidStr(data.email, 3, 160) &&
+        (!('phone' in data) || isValidStr(data.phone, 0, 30)) &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGarageMechanic(data) {
+      return data.keys().hasAll(['uid', 'garageId', 'name', 'email', 'isAvailable', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'garageId', 'garageManagerId', 'name', 'email', 'phone', 'specialization', 'isAvailable', 'isActive', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidStr(data.name, 1, 120) &&
+        isValidStr(data.email, 3, 160) &&
+        (!('phone' in data) || isValidStr(data.phone, 0, 30)) &&
+        (!('specialization' in data) || isValidStr(data.specialization, 0, 120)) &&
+        data.isAvailable is bool &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidVehicle(data) {
+      return data.keys().hasAll(['customerId', 'vehicleType', 'registrationNumber', 'brand', 'model', 'fuelType', 'year', 'odometer', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['customerId', 'vehicleType', 'registrationNumber', 'brand', 'model', 'variant', 'fuelType', 'year', 'odometer', 'photoUrl', 'createdAt', 'updatedAt']) &&
+        isValidId(data.customerId) &&
+        data.vehicleType in ['Car', 'Bike'] &&
+        isValidStr(data.registrationNumber, 3, 32) &&
+        isValidStr(data.brand, 1, 64) &&
+        isValidStr(data.model, 1, 64) &&
+        (!('variant' in data) || isValidStr(data.variant, 0, 64)) &&
+        isValidStr(data.fuelType, 1, 32) &&
+        data.year is number && data.year >= 1970 && data.year <= 2030 &&
+        data.odometer is number && data.odometer >= 0 && data.odometer <= 2000000 &&
+        (!('photoUrl' in data) || isValidStr(data.photoUrl, 0, 500)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidServiceCategory(data) {
+      return data.keys().hasAll(['garageId', 'name', 'vehicleType', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['garageId', 'garageManagerId', 'name', 'vehicleType', 'description', 'isActive', 'createdAt', 'updatedAt']) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidStr(data.name, 2, 100) &&
+        data.vehicleType in ['Car', 'Bike'] &&
+        (!('description' in data) || isValidStr(data.description, 0, 300)) &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidServicePackage(data) {
+      return data.keys().hasAll(['garageId', 'categoryId', 'categoryName', 'name', 'vehicleType', 'includedServices', 'labourCharge', 'partsEstimate', 'startingPrice', 'estimatedDurationMins', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['garageId', 'garageManagerId', 'categoryId', 'categoryName', 'name', 'vehicleType', 'includedServices', 'labourCharge', 'partsEstimate', 'startingPrice', 'estimatedDurationMins', 'description', 'isDemoEstimate', 'isActive', 'createdAt', 'updatedAt']) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidStr(data.categoryId, 1, 128) &&
+        isValidStr(data.categoryName, 1, 100) &&
+        isValidStr(data.name, 2, 120) &&
+        data.vehicleType in ['Car', 'Bike'] &&
+        data.includedServices is list && data.includedServices.size() <= 20 &&
+        (data.includedServices.size() == 0 || data.includedServices[0] is string) &&
+        data.labourCharge is number && data.labourCharge >= 0 &&
+        data.partsEstimate is number && data.partsEstimate >= 0 &&
+        data.startingPrice is number && data.startingPrice >= 0 &&
+        data.estimatedDurationMins is number && data.estimatedDurationMins >= 15 && data.estimatedDurationMins <= 2400 &&
+        (!('description' in data) || isValidStr(data.description, 0, 500)) &&
+        (!('isDemoEstimate' in data) || data.isDemoEstimate is bool) &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAppointmentSlot(data) {
+      return data.keys().hasAll(['garageId', 'date', 'timeSlot', 'capacity', 'bookedCount', 'isBlocked', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['garageId', 'garageManagerId', 'date', 'timeSlot', 'capacity', 'bookedCount', 'isBlocked', 'note', 'createdAt', 'updatedAt']) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidStr(data.date, 10, 10) &&
+        isValidStr(data.timeSlot, 3, 24) &&
+        data.capacity is number && data.capacity >= 0 && data.capacity <= 50 &&
+        data.bookedCount is number && data.bookedCount >= 0 && data.bookedCount <= data.capacity &&
+        data.isBlocked is bool &&
+        (!('note' in data) || isValidStr(data.note, 0, 200)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidBookingStatus(status) {
+      return status in [
+        'Pending',
+        'Accepted',
+        'Rejected',
+        'Reschedule Requested',
+        'Confirmed',
+        'Mechanic Assigned',
+        'Vehicle Received',
+        'Inspection',
+        'Estimate Prepared',
+        'Awaiting Customer Approval',
+        'Work In Progress',
+        'Waiting for Parts',
+        'Quality Check',
+        'Ready for Pickup',
+        'Completed',
+        'Cancellation Requested',
+        'Cancelled'
+      ];
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll([
+        'bookingCode', 'garageId', 'garageName', 'customerId', 'customerName', 'customerPhone',
+        'vehicleId', 'vehicleType', 'registrationNumber', 'vehicleBrand', 'vehicleModel',
+        'categoryId', 'categoryName', 'packageId', 'packageName', 'estimatedPrice',
+        'problemDescription', 'appointmentDate', 'appointmentTime', 'slotId',
+        'status', 'statusHistory', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'bookingCode', 'garageId', 'garageName', 'garageManagerId', 'customerId', 'customerName', 'customerPhone',
+        'vehicleId', 'vehicleType', 'registrationNumber', 'vehicleBrand', 'vehicleModel',
+        'categoryId', 'categoryName', 'packageId', 'packageName', 'estimatedPrice',
+        'problemDescription', 'photoUrls', 'appointmentDate', 'appointmentTime', 'slotId',
+        'status', 'statusHistory', 'rejectionReason', 'rescheduleSuggestedDate',
+        'rescheduleSuggestedTime', 'rescheduleNote', 'assignedMechanicId', 'assignedMechanicName',
+        'acceptedBy', 'rejectedBy', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidStr(data.bookingCode, 4, 32) &&
+      isValidId(data.garageId) &&
+      isValidStr(data.garageName, 2, 120) &&
+      (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+      isValidId(data.customerId) &&
+      isValidStr(data.customerName, 1, 120) &&
+      isValidStr(data.customerPhone, 4, 30) &&
+      isValidStr(data.vehicleId, 1, 128) &&
+      data.vehicleType in ['Car', 'Bike'] &&
+      isValidStr(data.registrationNumber, 3, 32) &&
+      isValidStr(data.vehicleBrand, 1, 64) &&
+      isValidStr(data.vehicleModel, 1, 64) &&
+      isValidStr(data.categoryId, 1, 128) &&
+      isValidStr(data.categoryName, 1, 100) &&
+      isValidStr(data.packageId, 1, 128) &&
+      isValidStr(data.packageName, 1, 120) &&
+      data.estimatedPrice is number && data.estimatedPrice >= 0 &&
+      isValidStr(data.problemDescription, 3, 1000) &&
+      (!('photoUrls' in data) || (data.photoUrls is list && data.photoUrls.size() <= 5 && (data.photoUrls.size() == 0 || data.photoUrls[0] is string))) &&
+      isValidStr(data.appointmentDate, 10, 10) &&
+      isValidStr(data.appointmentTime, 3, 24) &&
+      isValidStr(data.slotId, 3, 128) &&
+      isValidBookingStatus(data.status) &&
+      data.statusHistory is list && data.statusHistory.size() >= 1 && data.statusHistory.size() <= 40 &&
+      (data.statusHistory[0] is map) &&
+      (!('rejectionReason' in data) || isValidStr(data.rejectionReason, 0, 500)) &&
+      (!('rescheduleSuggestedDate' in data) || isValidStr(data.rescheduleSuggestedDate, 0, 20)) &&
+      (!('rescheduleSuggestedTime' in data) || isValidStr(data.rescheduleSuggestedTime, 0, 30)) &&
+      (!('rescheduleNote' in data) || isValidStr(data.rescheduleNote, 0, 300)) &&
+      (!('assignedMechanicId' in data) || isValidStr(data.assignedMechanicId, 0, 128)) &&
+      (!('assignedMechanicName' in data) || isValidStr(data.assignedMechanicName, 0, 120)) &&
+      (!('acceptedBy' in data) || isValidStr(data.acceptedBy, 0, 128)) &&
+      (!('rejectedBy' in data) || isValidStr(data.rejectedBy, 0, 128)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidJobCard(data) {
+      return data.keys().hasAll(['jobCardCode', 'bookingId', 'garageId', 'customerId', 'assignedMechanicId', 'assignedMechanicName', 'vehicleSummary', 'customerApprovedExtraWork', 'labourCharges', 'partsCharges', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['jobCardCode', 'bookingId', 'garageId', 'garageManagerId', 'customerId', 'assignedMechanicId', 'assignedMechanicName', 'vehicleSummary', 'customerComplaint', 'inspectionResults', 'recommendedWork', 'customerApprovedExtraWork', 'labourCharges', 'partsCharges', 'estimatedCompletion', 'actualCompletion', 'status', 'createdAt', 'updatedAt']) &&
+        isValidStr(data.jobCardCode, 4, 32) &&
+        isValidId(data.bookingId) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.customerId) &&
+        isValidId(data.assignedMechanicId) &&
+        isValidStr(data.assignedMechanicName, 1, 120) &&
+        isValidStr(data.vehicleSummary, 2, 180) &&
+        (!('customerComplaint' in data) || isValidStr(data.customerComplaint, 0, 1000)) &&
+        (!('inspectionResults' in data) || isValidStr(data.inspectionResults, 0, 1500)) &&
+        (!('recommendedWork' in data) || isValidStr(data.recommendedWork, 0, 1500)) &&
+        data.customerApprovedExtraWork is bool &&
+        data.labourCharges is number && data.labourCharges >= 0 &&
+        data.partsCharges is number && data.partsCharges >= 0 &&
+        (!('estimatedCompletion' in data) || isValidStr(data.estimatedCompletion, 0, 64)) &&
+        (!('actualCompletion' in data) || isValidStr(data.actualCompletion, 0, 64)) &&
+        isValidBookingStatus(data.status) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidInspection(data) {
+      return data.keys().hasAll(['jobCardId', 'bookingId', 'garageId', 'assignedMechanicId', 'customerId', 'notes', 'checklist', 'submittedForApproval', 'managerApproved', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['jobCardId', 'bookingId', 'garageId', 'garageManagerId', 'assignedMechanicId', 'customerId', 'notes', 'checklist', 'photoUrls', 'submittedForApproval', 'managerApproved', 'createdAt', 'updatedAt']) &&
+        isValidId(data.jobCardId) &&
+        isValidId(data.bookingId) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.assignedMechanicId) &&
+        isValidId(data.customerId) &&
+        isValidStr(data.notes, 0, 2000) &&
+        data.checklist is list && data.checklist.size() <= 30 &&
+        (data.checklist.size() == 0 || data.checklist[0] is map) &&
+        (!('photoUrls' in data) || (data.photoUrls is list && data.photoUrls.size() <= 10 && (data.photoUrls.size() == 0 || data.photoUrls[0] is string))) &&
+        data.submittedForApproval is bool &&
+        data.managerApproved is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidMechanicUpdate(data) {
+      return data.keys().hasAll(['jobCardId', 'bookingId', 'garageId', 'assignedMechanicId', 'customerId', 'status', 'notes', 'createdAt']) &&
+        data.keys().hasOnly(['jobCardId', 'bookingId', 'garageId', 'garageManagerId', 'assignedMechanicId', 'customerId', 'status', 'notes', 'partsUsed', 'labourNotes', 'createdAt']) &&
+        isValidId(data.jobCardId) &&
+        isValidId(data.bookingId) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.assignedMechanicId) &&
+        isValidId(data.customerId) &&
+        isValidStr(data.status, 2, 48) &&
+        isValidStr(data.notes, 1, 1000) &&
+        (!('partsUsed' in data) || (data.partsUsed is list && data.partsUsed.size() <= 20 && (data.partsUsed.size() == 0 || data.partsUsed[0] is map))) &&
+        (!('labourNotes' in data) || isValidStr(data.labourNotes, 0, 500)) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidSparePart(data) {
+      return data.keys().hasAll(['garageId', 'name', 'sku', 'category', 'brand', 'purchasePrice', 'sellingPrice', 'quantity', 'minStockLevel', 'isActive', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['garageId', 'garageManagerId', 'authorizedMechanicIds', 'name', 'sku', 'category', 'brand', 'purchasePrice', 'sellingPrice', 'quantity', 'minStockLevel', 'supplier', 'isActive', 'createdAt', 'updatedAt']) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        (!('authorizedMechanicIds' in data) || (data.authorizedMechanicIds is list && data.authorizedMechanicIds.size() <= 25 && (data.authorizedMechanicIds.size() == 0 || data.authorizedMechanicIds[0] is string))) &&
+        isValidStr(data.name, 2, 120) &&
+        isValidStr(data.sku, 2, 48) &&
+        isValidStr(data.category, 2, 64) &&
+        isValidStr(data.brand, 1, 64) &&
+        data.purchasePrice is number && data.purchasePrice >= 0 &&
+        data.sellingPrice is number && data.sellingPrice >= 0 &&
+        data.quantity is number && data.quantity >= 0 &&
+        data.minStockLevel is number && data.minStockLevel >= 0 &&
+        (!('supplier' in data) || isValidStr(data.supplier, 0, 120)) &&
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidInventoryLog(data) {
+      return data.keys().hasAll(['partId', 'partName', 'garageId', 'type', 'quantityDelta', 'previousQty', 'newQty', 'performedBy', 'createdAt']) &&
+        data.keys().hasOnly(['partId', 'partName', 'garageId', 'garageManagerId', 'type', 'quantityDelta', 'previousQty', 'newQty', 'bookingId', 'notes', 'performedBy', 'createdAt']) &&
+        isValidId(data.partId) &&
+        isValidStr(data.partName, 1, 120) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        data.type in ['purchase', 'usage', 'adjustment'] &&
+        data.quantityDelta is number &&
+        data.previousQty is number && data.previousQty >= 0 &&
+        data.newQty is number && data.newQty >= 0 &&
+        (!('bookingId' in data) || isValidStr(data.bookingId, 0, 128)) &&
+        (!('notes' in data) || isValidStr(data.notes, 0, 300)) &&
+        isValidId(data.performedBy) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidInvoice(data) {
+      return data.keys().hasAll(['invoiceNumber', 'garageId', 'garageName', 'customerId', 'customerName', 'vehicleSummary', 'bookingId', 'serviceDescription', 'labourCharges', 'partsCharges', 'discount', 'taxRate', 'taxAmount', 'finalTotal', 'paidAmount', 'paymentStatus', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['invoiceNumber', 'garageId', 'garageName', 'garageAddress', 'garagePhone', 'garageManagerId', 'customerId', 'customerName', 'customerPhone', 'vehicleSummary', 'bookingId', 'jobCardId', 'serviceDescription', 'labourCharges', 'partsCharges', 'discount', 'taxRate', 'taxAmount', 'finalTotal', 'paidAmount', 'paymentStatus', 'createdAt', 'updatedAt']) &&
+        isValidStr(data.invoiceNumber, 4, 40) &&
+        isValidId(data.garageId) &&
+        isValidStr(data.garageName, 2, 120) &&
+        (!('garageAddress' in data) || isValidStr(data.garageAddress, 0, 300)) &&
+        (!('garagePhone' in data) || isValidStr(data.garagePhone, 0, 30)) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.customerId) &&
+        isValidStr(data.customerName, 1, 120) &&
+        (!('customerPhone' in data) || isValidStr(data.customerPhone, 0, 30)) &&
+        isValidStr(data.vehicleSummary, 2, 180) &&
+        isValidId(data.bookingId) &&
+        (!('jobCardId' in data) || isValidStr(data.jobCardId, 0, 128)) &&
+        isValidStr(data.serviceDescription, 2, 500) &&
+        data.labourCharges is number && data.labourCharges >= 0 &&
+        data.partsCharges is number && data.partsCharges >= 0 &&
+        data.discount is number && data.discount >= 0 &&
+        data.taxRate is number && data.taxRate >= 0 && data.taxRate <= 50 &&
+        data.taxAmount is number && data.taxAmount >= 0 &&
+        data.finalTotal is number && data.finalTotal >= 0 &&
+        data.paidAmount is number && data.paidAmount >= 0 &&
+        data.paymentStatus in ['Pending', 'Partially Paid', 'Paid', 'Refunded'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPayment(data) {
+      return data.keys().hasAll(['invoiceId', 'invoiceNumber', 'bookingId', 'garageId', 'customerId', 'amount', 'method', 'status', 'verifiedBy', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['invoiceId', 'invoiceNumber', 'bookingId', 'garageId', 'garageManagerId', 'customerId', 'amount', 'method', 'referenceNote', 'status', 'verifiedBy', 'createdAt', 'updatedAt']) &&
+        isValidId(data.invoiceId) &&
+        isValidStr(data.invoiceNumber, 4, 40) &&
+        isValidId(data.bookingId) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.customerId) &&
+        data.amount is number && data.amount > 0 &&
+        data.method in ['Cash', 'UPI', 'Card (Manual)', 'Other'] &&
+        (!('referenceNote' in data) || isValidStr(data.referenceNote, 0, 200)) &&
+        data.status in ['Pending', 'Partially Paid', 'Paid', 'Refunded'] &&
+        isValidId(data.verifiedBy) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['garageId', 'category', 'description', 'amount', 'expenseDate', 'recordedBy', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['garageId', 'garageManagerId', 'category', 'description', 'amount', 'expenseDate', 'recordedBy', 'createdAt', 'updatedAt']) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        data.category in ['Spare Parts Purchases', 'Mechanic Salaries', 'Rent', 'Electricity', 'Equipment', 'Maintenance', 'Other'] &&
+        isValidStr(data.description, 2, 300) &&
+        data.amount is number && data.amount > 0 &&
+        isValidStr(data.expenseDate, 10, 10) &&
+        isValidId(data.recordedBy) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll(['garageId', 'bookingId', 'customerId', 'customerName', 'rating', 'comment', 'verified', 'createdAt']) &&
+        data.keys().hasOnly(['garageId', 'garageManagerId', 'bookingId', 'customerId', 'customerName', 'rating', 'comment', 'verified', 'createdAt']) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.bookingId) &&
+        isValidId(data.customerId) &&
+        isValidStr(data.customerName, 1, 120) &&
+        data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+        isValidStr(data.comment, 3, 1000) &&
+        data.verified is bool &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidSupportTicket(data) {
+      return data.keys().hasAll(['ticketCode', 'customerId', 'customerName', 'garageId', 'subject', 'message', 'priority', 'status', 'replies', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ticketCode', 'customerId', 'customerName', 'garageId', 'garageManagerId', 'bookingId', 'subject', 'message', 'priority', 'status', 'replies', 'createdAt', 'updatedAt']) &&
+        isValidStr(data.ticketCode, 4, 32) &&
+        isValidId(data.customerId) &&
+        isValidStr(data.customerName, 1, 120) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        (!('bookingId' in data) || isValidStr(data.bookingId, 0, 128)) &&
+        isValidStr(data.subject, 3, 180) &&
+        isValidStr(data.message, 3, 1500) &&
+        data.priority in ['Low', 'Medium', 'High'] &&
+        data.status in ['Open', 'In Progress', 'Resolved', 'Closed'] &&
+        data.replies is list && data.replies.size() <= 30 &&
+        (data.replies.size() == 0 || data.replies[0] is map) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSupportInternalNote(data) {
+      return data.keys().hasAll(['ticketId', 'garageId', 'authorId', 'note', 'createdAt']) &&
+        data.keys().hasOnly(['ticketId', 'garageId', 'garageManagerId', 'authorId', 'note', 'createdAt']) &&
+        isValidId(data.ticketId) &&
+        isValidId(data.garageId) &&
+        (!('garageManagerId' in data) || isValidStr(data.garageManagerId, 0, 128)) &&
+        isValidId(data.authorId) &&
+        isValidStr(data.note, 1, 1000) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['recipientId', 'recipientRole', 'title', 'message', 'type', 'isRead', 'createdAt']) &&
+        data.keys().hasOnly(['recipientId', 'recipientRole', 'garageId', 'title', 'message', 'type', 'relatedBookingId', 'isRead', 'createdAt']) &&
+        isValidId(data.recipientId) &&
+        data.recipientRole in ['super_admin', 'garage_manager', 'mechanic', 'customer'] &&
+        (!('garageId' in data) || isValidStr(data.garageId, 0, 64)) &&
+        isValidStr(data.title, 2, 140) &&
+        isValidStr(data.message, 2, 500) &&
+        isValidStr(data.type, 2, 48) &&
+        (!('relatedBookingId' in data) || isValidStr(data.relatedBookingId, 0, 128)) &&
+        data.isRead is bool &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['actorId', 'actorRole', 'action', 'targetCollection', 'targetId', 'details', 'createdAt']) &&
+        data.keys().hasOnly(['actorId', 'actorRole', 'actorEmail', 'action', 'targetCollection', 'targetId', 'garageId', 'details', 'createdAt']) &&
+        isValidId(data.actorId) &&
+        isValidStr(data.actorRole, 2, 32) &&
+        (!('actorEmail' in data) || isValidStr(data.actorEmail, 0, 160)) &&
+        isValidStr(data.action, 2, 120) &&
+        isValidStr(data.targetCollection, 2, 64) &&
+        isValidStr(data.targetId, 1, 128) &&
+        (!('garageId' in data) || isValidStr(data.garageId, 0, 64)) &&
+        isValidStr(data.details, 1, 1000) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidPlatformSetting(data) {
+      return data.keys().hasAll(['businessName', 'tagline', 'currency', 'defaultTaxRate', 'updatedAt']) &&
+        data.keys().hasOnly(['businessName', 'tagline', 'currency', 'defaultTaxRate', 'supportEmail', 'supportPhone', 'updatedAt']) &&
+        isValidStr(data.businessName, 2, 120) &&
+        isValidStr(data.tagline, 2, 200) &&
+        isValidStr(data.currency, 1, 16) &&
+        data.defaultTaxRate is number && data.defaultTaxRate >= 0 && data.defaultTaxRate <= 50 &&
+        (!('supportEmail' in data) || isValidStr(data.supportEmail, 0, 160)) &&
+        (!('supportPhone' in data) || isValidStr(data.supportPhone, 0, 30)) &&
+        data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    match /users/{uid} {
+      allow get: if isValidId(uid) && isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(uid) && isVerifiedUser() && isValidUserAccount(incoming()) &&
+        incoming().uid == uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          (request.auth.uid == uid && incoming().role == 'customer' && (!('garageId' in incoming()) || incoming().garageId == '')) ||
+          (request.auth.uid == uid && isBootstrappedAdmin() && incoming().role == 'super_admin') ||
+          (request.auth.uid == uid && 'claimedInviteId' in incoming() && 'garageId' in incoming() && isClaimingValidInvite(incoming().claimedInviteId, incoming().role, incoming().garageId))
+        );
+      allow update: if isValidId(uid) && isVerifiedUser() && isValidUserAccount(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          (
+            request.auth.uid == uid &&
+            incoming().role == existing().role &&
+            incoming().garageId == existing().garageId &&
+            incoming().isActive == existing().isActive &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt'])
+          ) ||
+          (
+            request.auth.uid == uid &&
+            'claimedInviteId' in incoming() &&
+            'garageId' in incoming() &&
+            isClaimingValidInvite(incoming().claimedInviteId, incoming().role, incoming().garageId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['role', 'garageId', 'claimedInviteId', 'updatedAt'])
+          )
+        );
+      allow delete: if false;
+    }
+
+    match /customers/{customerId} {
+      allow get: if isValidId(customerId) && isSignedIn() && (request.auth.uid == customerId || isSuperAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(customerId) && isVerifiedUser() && isValidCustomerProfile(incoming()) &&
+        incoming().uid == customerId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (request.auth.uid == customerId || isSuperAdmin());
+      allow update: if isValidId(customerId) && isVerifiedUser() && isValidCustomerProfile(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (request.auth.uid == customerId || isSuperAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'phone', 'address', 'city', 'pincode', 'updatedAt']);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /garages/{garageId} {
+      allow get: if isValidId(garageId);
+      allow list: if true;
+      allow create: if isValidId(garageId) && isSuperAdmin() && isValidGarage(incoming()) &&
+        incoming().garageId == garageId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(garageId) && isVerifiedUser() && isValidGarage(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          (
+            isGarageManagerOf(garageId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['operatingHours', 'dailyCapacity', 'slotDurationMins', 'phone', 'email', 'address', 'updatedAt'])
+          ) ||
+          (
+            incoming().managerUid == request.auth.uid &&
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'garage_manager' &&
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.garageId == garageId &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['managerUid', 'managerName', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /staff_invites/{inviteId} {
+      allow get: if isValidId(inviteId) && isSignedIn() && (existing().email == request.auth.token.email || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.email == request.auth.token.email || isBootstrappedAdmin());
+      allow create: if isValidId(inviteId) && isSuperAdmin() && isValidStaffInvite(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(inviteId) && isVerifiedUser() && isValidStaffInvite(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          (
+            existing().email == request.auth.token.email &&
+            existing().status == 'pending' &&
+            incoming().status == 'claimed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /garage_managers/{managerId} {
+      allow get: if isValidId(managerId) && isSignedIn() && (existing().uid == request.auth.uid || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(managerId) && isVerifiedUser() && isValidGarageManager(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          (
+            incoming().uid == request.auth.uid &&
+            incoming().email == request.auth.token.email &&
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'garage_manager' &&
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.garageId == incoming().garageId
+          )
+        );
+      allow update: if isValidId(managerId) && isSuperAdmin() && isValidGarageManager(incoming()) &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isSuperAdmin();
+    }
+
+    match /garage_mechanics/{mechanicId} {
+      allow get: if isValidId(mechanicId) && isSignedIn() && (existing().uid == request.auth.uid || isGarageManagerOf(existing().garageId) || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.uid == request.auth.uid || resource.data.garageManagerId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(mechanicId) && isVerifiedUser() && isValidGarageMechanic(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(incoming().garageId) ||
+          (
+            incoming().uid == request.auth.uid &&
+            incoming().email == request.auth.token.email &&
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'mechanic' &&
+            getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.garageId == incoming().garageId
+          )
+        );
+      allow update: if isValidId(mechanicId) && isVerifiedUser() && isValidGarageMechanic(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(existing().garageId) ||
+          (
+            existing().uid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['isAvailable', 'phone', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /vehicles/{vehicleId} {
+      allow get: if isValidId(vehicleId) && isSignedIn() && (existing().customerId == request.auth.uid || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.customerId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(vehicleId) && isVerifiedUser() && isValidVehicle(incoming()) &&
+        incoming().customerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(vehicleId) && isVerifiedUser() && isValidVehicle(incoming()) &&
+        incoming().customerId == existing().customerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (existing().customerId == request.auth.uid || isSuperAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['vehicleType', 'registrationNumber', 'brand', 'model', 'variant', 'fuelType', 'year', 'odometer', 'photoUrl', 'updatedAt']);
+      allow delete: if isValidId(vehicleId) && isVerifiedUser() && (existing().customerId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /service_categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isValidId(categoryId) && isVerifiedUser() && isValidServiceCategory(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(categoryId) && isVerifiedUser() && isValidServiceCategory(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+      allow delete: if isValidId(categoryId) && (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+    }
+
+    match /service_packages/{packageId} {
+      allow get: if isValidId(packageId);
+      allow list: if true;
+      allow create: if isValidId(packageId) && isVerifiedUser() && isValidServicePackage(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(packageId) && isVerifiedUser() && isValidServicePackage(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+      allow delete: if isValidId(packageId) && (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+    }
+
+    match /appointment_slots/{slotId} {
+      allow get: if isValidId(slotId);
+      allow list: if true;
+      allow create: if isValidId(slotId) && isVerifiedUser() && isValidAppointmentSlot(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(incoming().garageId) ||
+          (incoming().bookedCount == 1 && incoming().isBlocked == false)
+        );
+      allow update: if isValidId(slotId) && isVerifiedUser() && isValidAppointmentSlot(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().date == existing().date &&
+        incoming().timeSlot == existing().timeSlot &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(existing().garageId) ||
+          (
+            existing().isBlocked == false &&
+            incoming().bookedCount == existing().bookedCount + 1 &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+          ) ||
+          (
+            incoming().bookedCount == existing().bookedCount - 1 &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['bookedCount', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(slotId) && (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isValidId(bookingId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        existing().garageManagerId == request.auth.uid ||
+        existing().assignedMechanicId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        resource.data.assignedMechanicId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(bookingId) && isVerifiedUser() && isValidBooking(incoming()) &&
+        incoming().customerId == request.auth.uid &&
+        incoming().status == 'Pending' &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        get(/databases/$(database)/documents/garages/$(incoming().garageId)).data.isActive == true &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(bookingId) && isVerifiedUser() && isValidBooking(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().customerId == existing().customerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          (
+            // Manager Actions (Strict garage ownership, cannot alter customer/vehicle core)
+            isGarageManagerOf(existing().garageId) &&
+            !(existing().status in ['Completed', 'Rejected', 'Cancelled']) && (
+              // Accept Pending Booking
+              (
+                existing().status == 'Pending' &&
+                incoming().status in ['Accepted', 'Confirmed'] &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'acceptedBy', 'updatedAt'])
+              ) ||
+              // Reject Pending Booking
+              (
+                existing().status == 'Pending' &&
+                incoming().status == 'Rejected' &&
+                isValidStr(incoming().rejectionReason, 3, 500) &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'rejectionReason', 'rejectedBy', 'updatedAt'])
+              ) ||
+              // Request Reschedule
+              (
+                existing().status in ['Pending', 'Accepted', 'Confirmed'] &&
+                incoming().status == 'Reschedule Requested' &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'rescheduleSuggestedDate', 'rescheduleSuggestedTime', 'rescheduleNote', 'updatedAt'])
+              ) ||
+              // Assign Mechanic & Advance Workshop Stages
+              (
+                existing().status in ['Accepted', 'Confirmed', 'Mechanic Assigned', 'Vehicle Received', 'Inspection', 'Estimate Prepared', 'Awaiting Customer Approval', 'Work In Progress', 'Waiting for Parts', 'Quality Check', 'Ready for Pickup'] &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'assignedMechanicId', 'assignedMechanicName', 'updatedAt'])
+              )
+            )
+          ) ||
+          (
+            // Customer Actions (Reschedule response, Extra-work approval, Cancellation request)
+            existing().customerId == request.auth.uid &&
+            !(existing().status in ['Completed', 'Rejected', 'Cancelled']) && (
+              // Respond to Reschedule Request
+              (
+                existing().status == 'Reschedule Requested' &&
+                incoming().status in ['Confirmed', 'Cancellation Requested', 'Cancelled'] &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'appointmentDate', 'appointmentTime', 'slotId', 'updatedAt'])
+              ) ||
+              // Approve Recommended Work
+              (
+                existing().status in ['Estimate Prepared', 'Awaiting Customer Approval'] &&
+                incoming().status == 'Work In Progress' &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'updatedAt'])
+              ) ||
+              // Cancel Pending or Request Cancellation
+              (
+                incoming().status in ['Cancellation Requested', 'Cancelled'] &&
+                incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'updatedAt'])
+              )
+            )
+          ) ||
+          (
+            // Mechanic Actions (Only assigned mechanic, only workshop progress statuses)
+            isMechanicOf(existing().garageId) &&
+            existing().assignedMechanicId == request.auth.uid &&
+            !(existing().status in ['Pending', 'Rejected', 'Completed', 'Cancelled']) &&
+            incoming().status in ['Vehicle Received', 'Inspection', 'Estimate Prepared', 'Awaiting Customer Approval', 'Work In Progress', 'Waiting for Parts', 'Quality Check', 'Ready for Pickup'] &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'statusHistory', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /job_cards/{jobCardId} {
+      allow get: if isValidId(jobCardId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        existing().assignedMechanicId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        resource.data.assignedMechanicId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(jobCardId) && isVerifiedUser() && isValidJobCard(incoming()) &&
+        exists(/databases/$(database)/documents/bookings/$(incoming().bookingId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(jobCardId) && isVerifiedUser() && isValidJobCard(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().bookingId == existing().bookingId &&
+        incoming().customerId == existing().customerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(existing().garageId) ||
+          (
+            isMechanicOf(existing().garageId) &&
+            existing().assignedMechanicId == request.auth.uid &&
+            existing().status != 'Completed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['inspectionResults', 'recommendedWork', 'partsCharges', 'status', 'updatedAt'])
+          ) ||
+          (
+            existing().customerId == request.auth.uid &&
+            incoming().customerApprovedExtraWork == true &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['customerApprovedExtraWork', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /inspections/{inspectionId} {
+      allow get: if isValidId(inspectionId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        existing().assignedMechanicId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        resource.data.assignedMechanicId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(inspectionId) && isVerifiedUser() && isValidInspection(incoming()) &&
+        exists(/databases/$(database)/documents/job_cards/$(incoming().jobCardId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(incoming().garageId) ||
+          (isMechanicOf(incoming().garageId) && incoming().assignedMechanicId == request.auth.uid)
+        );
+      allow update: if isValidId(inspectionId) && isVerifiedUser() && isValidInspection(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().jobCardId == existing().jobCardId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(existing().garageId) ||
+          (
+            isMechanicOf(existing().garageId) &&
+            existing().assignedMechanicId == request.auth.uid &&
+            existing().managerApproved == false &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'checklist', 'photoUrls', 'submittedForApproval', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /mechanic_updates/{updateId} {
+      allow get: if isValidId(updateId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        existing().assignedMechanicId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        resource.data.assignedMechanicId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(updateId) && isVerifiedUser() && isValidMechanicUpdate(incoming()) &&
+        exists(/databases/$(database)/documents/job_cards/$(incoming().jobCardId)) &&
+        incoming().createdAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(incoming().garageId) ||
+          (isMechanicOf(incoming().garageId) && incoming().assignedMechanicId == request.auth.uid)
+        );
+      allow update, delete: if false;
+    }
+
+    match /spare_parts/{partId} {
+      allow get: if isValidId(partId) && isSignedIn() && (
+        isGarageManagerOf(existing().garageId) ||
+        isMechanicOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.garageManagerId == request.auth.uid ||
+        request.auth.uid in resource.data.authorizedMechanicIds ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(partId) && isVerifiedUser() && isValidSparePart(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(partId) && isVerifiedUser() && isValidSparePart(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(existing().garageId) ||
+          (
+            isMechanicOf(existing().garageId) &&
+            incoming().quantity >= 0 &&
+            incoming().quantity <= existing().quantity &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['quantity', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /inventory_logs/{logId} {
+      allow get: if isValidId(logId) && isSignedIn() && (isGarageManagerOf(existing().garageId) || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.garageManagerId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(logId) && isVerifiedUser() && isValidInventoryLog(incoming()) &&
+        exists(/databases/$(database)/documents/spare_parts/$(incoming().partId)) &&
+        incoming().performedBy == request.auth.uid &&
+        incoming().createdAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(incoming().garageId) ||
+          isMechanicOf(incoming().garageId)
+        );
+      allow update, delete: if false;
+    }
+
+    match /invoices/{invoiceId} {
+      allow get: if isValidId(invoiceId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(invoiceId) && isVerifiedUser() && isValidInvoice(incoming()) &&
+        exists(/databases/$(database)/documents/bookings/$(incoming().bookingId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(invoiceId) && isVerifiedUser() && isValidInvoice(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().customerId == existing().customerId &&
+        incoming().bookingId == existing().bookingId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+      allow delete: if isSuperAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow get: if isValidId(paymentId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(paymentId) && isVerifiedUser() && isValidPayment(incoming()) &&
+        exists(/databases/$(database)/documents/invoices/$(incoming().invoiceId)) &&
+        incoming().verifiedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(paymentId) && isVerifiedUser() && isValidPayment(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+      allow delete: if isSuperAdmin();
+    }
+
+    match /expenses/{expenseId} {
+      allow get: if isValidId(expenseId) && isSignedIn() && (isGarageManagerOf(existing().garageId) || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.garageManagerId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(expenseId) && isVerifiedUser() && isValidExpense(incoming()) &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().recordedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update: if isValidId(expenseId) && isVerifiedUser() && isValidExpense(incoming()) &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(existing().garageId));
+      allow delete: if isSuperAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId);
+      allow list: if true;
+      allow create: if isValidId(reviewId) && isVerifiedUser() && isValidReview(incoming()) &&
+        incoming().customerId == request.auth.uid &&
+        exists(/databases/$(database)/documents/bookings/$(incoming().bookingId)) &&
+        get(/databases/$(database)/documents/bookings/$(incoming().bookingId)).data.customerId == request.auth.uid &&
+        get(/databases/$(database)/documents/bookings/$(incoming().bookingId)).data.status == 'Completed' &&
+        incoming().createdAt == request.time;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /support_tickets/{ticketId} {
+      allow get: if isValidId(ticketId) && isSignedIn() && (
+        existing().customerId == request.auth.uid ||
+        isGarageManagerOf(existing().garageId) ||
+        isSuperAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.garageManagerId == request.auth.uid ||
+        isBootstrappedAdmin()
+      );
+      allow create: if isValidId(ticketId) && isVerifiedUser() && isValidSupportTicket(incoming()) &&
+        incoming().customerId == request.auth.uid &&
+        exists(/databases/$(database)/documents/garages/$(incoming().garageId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(ticketId) && isVerifiedUser() && isValidSupportTicket(incoming()) &&
+        incoming().customerId == existing().customerId &&
+        incoming().garageId == existing().garageId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isSuperAdmin() ||
+          isGarageManagerOf(existing().garageId) ||
+          (
+            existing().customerId == request.auth.uid &&
+            existing().status != 'Closed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['replies', 'status', 'updatedAt'])
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    match /support_internal_notes/{noteId} {
+      allow get: if isValidId(noteId) && isSignedIn() && (isGarageManagerOf(existing().garageId) || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.garageManagerId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(noteId) && isVerifiedUser() && isValidSupportInternalNote(incoming()) &&
+        incoming().authorId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        (isSuperAdmin() || isGarageManagerOf(incoming().garageId));
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isSignedIn() && (existing().recipientId == request.auth.uid || isSuperAdmin());
+      allow list: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isValidId(notificationId) && isVerifiedUser() && isValidNotification(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(notificationId) && isVerifiedUser() && isValidNotification(incoming()) &&
+        incoming().recipientId == existing().recipientId &&
+        incoming().createdAt == existing().createdAt &&
+        (existing().recipientId == request.auth.uid || isSuperAdmin()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isValidId(notificationId) && (existing().recipientId == request.auth.uid || isSuperAdmin());
+    }
+
+    match /audit_logs/{logId} {
+      allow get, list: if isBootstrappedAdmin();
+      allow create: if isValidId(logId) && isVerifiedUser() && isValidAuditLog(incoming()) &&
+        incoming().actorId == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /platform_settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create, update: if isValidId(settingId) && isSuperAdmin() && isValidPlatformSetting(incoming()) &&
+        incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+  }
+}
