@@ -4,7 +4,9 @@ import { AlertTriangle, CheckCircle2, Loader2, LogOut, MailCheck, RefreshCw, Shi
 import {
   db,
   firebaseConfigError,
+  firebaseConfigIssueType,
   handleFirestoreError,
+  invalidFirebaseEnvVars,
   missingFirebaseEnvVars,
   OperationType,
 } from './lib/firebase';
@@ -393,23 +395,34 @@ function AutoCareAppShell() {
 
 export default function App() {
   if (firebaseConfigError) {
+    const varsToShow =
+      firebaseConfigIssueType === 'invalid_env' ? invalidFirebaseEnvVars : missingFirebaseEnvVars;
+    const heading =
+      firebaseConfigIssueType === 'init_error'
+        ? 'Firebase Initialization Error'
+        : firebaseConfigIssueType === 'invalid_env'
+          ? 'Invalid Firebase Configuration'
+          : 'Firebase Configuration Required';
+
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white border border-red-200 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-sm">
           <div className="flex items-center gap-2.5 text-red-700 font-bold text-base">
             <ShieldAlert className="w-5 h-5 shrink-0" />
-            <span>Firebase Configuration Required</span>
+            <span>{heading}</span>
           </div>
           <p className="text-xs text-slate-700 leading-relaxed">{firebaseConfigError}</p>
-          <div className="bg-slate-900 text-slate-100 rounded-lg p-3 text-xs font-mono space-y-1">
-            {missingFirebaseEnvVars.map((envKey) => (
-              <div key={envKey}>{envKey}=...</div>
-            ))}
-          </div>
+          {varsToShow.length > 0 && (
+            <div className="bg-slate-900 text-slate-100 rounded-lg p-3 text-xs font-mono space-y-1">
+              {varsToShow.map((envKey) => (
+                <div key={envKey}>{envKey}=...</div>
+              ))}
+            </div>
+          )}
           <p className="text-xs text-slate-500 leading-relaxed">
-            Also ensure <code className="font-mono text-slate-700">VITE_FIREBASE_STORAGE_BUCKET</code>,{' '}
-            <code className="font-mono text-slate-700">VITE_FIREBASE_MESSAGING_SENDER_ID</code>, and{' '}
-            <code className="font-mono text-slate-700">VITE_FIREBASE_FIRESTORE_DATABASE_ID</code> are configured for Production/Preview in Vercel Project Settings, then trigger a fresh deployment so Vite bundles them.
+            Ensure all seven <code className="font-mono text-slate-700">VITE_FIREBASE_*</code> variables are configured for{' '}
+            <strong>Production</strong> and <strong>Preview</strong> in Vercel Project Settings, then trigger a fresh{' '}
+            <strong>Redeploy without Build Cache</strong> so Vite embeds them into the production bundle.
           </p>
         </div>
       </div>

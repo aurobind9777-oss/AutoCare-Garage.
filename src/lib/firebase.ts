@@ -11,6 +11,7 @@ import {
   type Auth,
 } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 export const SUPER_ADMIN_EMAIL = 'aurobind9777@gmail.com';
 
@@ -25,6 +26,8 @@ interface FirebaseAppletConfig {
   measurementId?: string;
 }
 
+export type FirebaseConfigIssueType = 'missing_env' | 'invalid_env' | 'init_error' | null;
+
 // Optional local AI Studio config: resolves cleanly to {} when absent in GitHub / Vercel builds.
 const localAppletConfigs = import.meta.glob<{ default?: FirebaseAppletConfig }>(
   '../../firebase-applet-config.json',
@@ -32,64 +35,108 @@ const localAppletConfigs = import.meta.glob<{ default?: FirebaseAppletConfig }>(
 );
 const localConfig: FirebaseAppletConfig = Object.values(localAppletConfigs)[0]?.default ?? {};
 
+function cleanEnvValue(value?: string): string {
+  return (value ?? '').trim();
+}
+
+function isPlaceholderValue(value: string): boolean {
+  if (!value) return false;
+  const upper = value.toUpperCase();
+  return (
+    upper.startsWith('MY_') ||
+    upper.startsWith('YOUR_') ||
+    upper.includes('REPLACE_WITH') ||
+    value === '...' ||
+    (value.startsWith('<') && value.endsWith('>'))
+  );
+}
+
+const resolvedApiKey = cleanEnvValue(import.meta.env.VITE_FIREBASE_API_KEY) || cleanEnvValue(localConfig.apiKey);
+const resolvedAuthDomain =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || cleanEnvValue(localConfig.authDomain);
+const resolvedProjectId =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_PROJECT_ID) || cleanEnvValue(localConfig.projectId);
+const resolvedStorageBucket =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || cleanEnvValue(localConfig.storageBucket);
+const resolvedMessagingSenderId =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) ||
+  cleanEnvValue(localConfig.messagingSenderId);
+const resolvedAppId = cleanEnvValue(import.meta.env.VITE_FIREBASE_APP_ID) || cleanEnvValue(localConfig.appId);
+const resolvedFirestoreDatabaseId =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID) ||
+  cleanEnvValue(localConfig.firestoreDatabaseId);
+const resolvedMeasurementId =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) || cleanEnvValue(localConfig.measurementId);
+
 const resolvedConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim() || localConfig.apiKey || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() || localConfig.authDomain || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID?.trim() || localConfig.projectId || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET?.trim() || localConfig.storageBucket || '',
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID?.trim() || localConfig.messagingSenderId || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID?.trim() || localConfig.appId || '',
-  ...(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID?.trim() || localConfig.measurementId
-    ? {
-        measurementId:
-          import.meta.env.VITE_FIREBASE_MEASUREMENT_ID?.trim() || localConfig.measurementId,
-      }
-    : {}),
+  apiKey: resolvedApiKey,
+  authDomain: resolvedAuthDomain,
+  projectId: resolvedProjectId,
+  storageBucket: resolvedStorageBucket,
+  messagingSenderId: resolvedMessagingSenderId,
+  appId: resolvedAppId,
+  ...(resolvedMeasurementId ? { measurementId: resolvedMeasurementId } : {}),
 };
 
-const firestoreDatabaseId =
-  import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID?.trim() ||
-  localConfig.firestoreDatabaseId ||
-  '(default)';
-
 const requiredEntries: Array<[string, string]> = [
-  ['VITE_FIREBASE_API_KEY', resolvedConfig.apiKey],
-  ['VITE_FIREBASE_AUTH_DOMAIN', resolvedConfig.authDomain],
-  ['VITE_FIREBASE_PROJECT_ID', resolvedConfig.projectId],
-  ['VITE_FIREBASE_APP_ID', resolvedConfig.appId],
+  ['VITE_FIREBASE_API_KEY', resolvedApiKey],
+  ['VITE_FIREBASE_AUTH_DOMAIN', resolvedAuthDomain],
+  ['VITE_FIREBASE_PROJECT_ID', resolvedProjectId],
+  ['VITE_FIREBASE_STORAGE_BUCKET', resolvedStorageBucket],
+  ['VITE_FIREBASE_MESSAGING_SENDER_ID', resolvedMessagingSenderId],
+  ['VITE_FIREBASE_APP_ID', resolvedAppId],
+  ['VITE_FIREBASE_FIRESTORE_DATABASE_ID', resolvedFirestoreDatabaseId],
 ];
 
 export const missingFirebaseEnvVars: string[] = requiredEntries
   .filter(([, val]) => !val)
   .map(([key]) => key);
 
-export let firebaseConfigError: string | null =
-  missingFirebaseEnvVars.length > 0
-    ? `Missing required Firebase client configuration (${missingFirebaseEnvVars.join(', ')}). Configure these VITE_FIREBASE_* environment variables in Vercel Project Settings → Environment Variables or a local .env file.`
-    : null;
+export const invalidFirebaseEnvVars: string[] = requiredEntries
+  .filter(([, val]) => isPlaceholderValue(val))
+  .map(([key]) => key);
+
+export let firebaseConfigIssueType: FirebaseConfigIssueType = null;
+export let firebaseConfigError: string | null = null;
+
+if (missingFirebaseEnvVars.length > 0) {
+  firebaseConfigIssueType = 'missing_env';
+  firebaseConfigError = `Missing required Firebase client configuration (${missingFirebaseEnvVars.join(', ')}). Add these VITE_FIREBASE_* environment variables in Vercel Project Settings → Environment Variables (for Production and Preview) or a local .env file, then trigger a fresh build.`;
+} else if (invalidFirebaseEnvVars.length > 0) {
+  firebaseConfigIssueType = 'invalid_env';
+  firebaseConfigError = `Placeholder Firebase configuration detected for (${invalidFirebaseEnvVars.join(', ')}). Replace placeholders with your actual Firebase Web App values and trigger a fresh build.`;
+}
 
 let initializedApp: FirebaseApp | null = null;
 let initializedDb: Firestore | null = null;
+let initializedStorage: FirebaseStorage | null = null;
 
 if (!firebaseConfigError) {
   try {
     const hasDefaultApp = getApps().some((a) => a.name === '[DEFAULT]');
     initializedApp = hasDefaultApp ? getApp() : initializeApp(resolvedConfig);
-    initializedDb = getFirestore(initializedApp, firestoreDatabaseId);
+    initializedDb = getFirestore(initializedApp, resolvedFirestoreDatabaseId);
+    initializedStorage = getStorage(initializedApp);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    firebaseConfigIssueType = 'init_error';
     firebaseConfigError = `Firebase initialization failed: ${message}`;
   }
 }
 
 if (firebaseConfigError) {
   console.error('[AutoCare Firebase]', firebaseConfigError);
+} else if (import.meta.env.DEV) {
+  console.info('[AutoCare Firebase] Initialized', {
+    projectId: resolvedProjectId,
+    firestoreDatabaseId: resolvedFirestoreDatabaseId,
+    source: cleanEnvValue(import.meta.env.VITE_FIREBASE_API_KEY) ? 'vite_env' : 'firebase_applet_config',
+  });
 }
 
-const app: FirebaseApp | null = initializedApp;
-
+export const app: FirebaseApp | null = initializedApp;
 export const db: Firestore = initializedDb as unknown as Firestore;
+export const storage: FirebaseStorage = initializedStorage as unknown as FirebaseStorage;
 
 function createPrimaryAuth(): Auth {
   if (!app) {
@@ -127,6 +174,18 @@ export function getSecondaryAuth(): Auth {
   } catch {
     return getAuth(getApp('StaffProvisioningApp'));
   }
+}
+
+export function getFirebaseDiagnostics() {
+  return {
+    ready: !firebaseConfigError && Boolean(initializedApp && initializedDb && initializedStorage),
+    issueType: firebaseConfigIssueType,
+    missingVars: [...missingFirebaseEnvVars],
+    invalidVars: [...invalidFirebaseEnvVars],
+    hasProjectId: Boolean(resolvedProjectId),
+    hasDatabaseId: Boolean(resolvedFirestoreDatabaseId),
+    hasStorageBucket: Boolean(resolvedStorageBucket),
+  };
 }
 
 export enum OperationType {
@@ -189,15 +248,21 @@ export async function testFirestoreConnection(): Promise<{ connected: boolean; e
     };
   }
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDocFromServer(doc(db, 'garages', 'garage-1'));
     return { connected: true };
   } catch (error) {
+    const code = (error as { code?: string })?.code || '';
     const msg = error instanceof Error ? error.message : String(error);
-    if (msg.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
-      return { connected: false, error: 'Firestore client is offline. Verify Firebase configuration.' };
+    if (msg.includes('the client is offline') || code === 'unavailable') {
+      return { connected: false, error: 'Firestore client is offline. Verify network connectivity.' };
     }
-    // Missing permissions or not-found on test/connection still confirms network/server reachability
+    if (code === 'not-found' && msg.includes('5 NOT_FOUND')) {
+      return {
+        connected: false,
+        error: 'Configured Firestore database was not found. Verify VITE_FIREBASE_FIRESTORE_DATABASE_ID.',
+      };
+    }
+    // Any other response confirms the Firestore endpoint is reachable
     return { connected: true };
   }
 }
