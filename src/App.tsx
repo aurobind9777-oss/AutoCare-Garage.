@@ -3,11 +3,8 @@ import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { AlertTriangle, CheckCircle2, Loader2, LogOut, MailCheck, RefreshCw, ShieldAlert } from 'lucide-react';
 import {
   db,
-  firebaseConfigError,
-  firebaseConfigIssueType,
+  firebaseInitError,
   handleFirestoreError,
-  invalidFirebaseEnvVars,
-  missingFirebaseEnvVars,
   OperationType,
 } from './lib/firebase';
 import { DEMO_SIX_GARAGES, DEFAULT_PLATFORM_SETTINGS } from './data/seedCatalog';
@@ -394,36 +391,23 @@ function AutoCareAppShell() {
 }
 
 export default function App() {
-  if (firebaseConfigError) {
-    const varsToShow =
-      firebaseConfigIssueType === 'invalid_env' ? invalidFirebaseEnvVars : missingFirebaseEnvVars;
-    const heading =
-      firebaseConfigIssueType === 'init_error'
-        ? 'Firebase Initialization Error'
-        : firebaseConfigIssueType === 'invalid_env'
-          ? 'Invalid Firebase Configuration'
-          : 'Firebase Configuration Required';
-
+  if (firebaseInitError) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white border border-red-200 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-sm">
           <div className="flex items-center gap-2.5 text-red-700 font-bold text-base">
             <ShieldAlert className="w-5 h-5 shrink-0" />
-            <span>{heading}</span>
+            <span>Firebase Initialization Error</span>
           </div>
-          <p className="text-xs text-slate-700 leading-relaxed">{firebaseConfigError}</p>
-          {varsToShow.length > 0 && (
-            <div className="bg-slate-900 text-slate-100 rounded-lg p-3 text-xs font-mono space-y-1">
-              {varsToShow.map((envKey) => (
-                <div key={envKey}>{envKey}=...</div>
-              ))}
-            </div>
-          )}
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Ensure all seven <code className="font-mono text-slate-700">VITE_FIREBASE_*</code> variables are configured for{' '}
-            <strong>Production</strong> and <strong>Preview</strong> in Vercel Project Settings, then trigger a fresh{' '}
-            <strong>Redeploy without Build Cache</strong> so Vite embeds them into the production bundle.
-          </p>
+          <p className="text-xs text-slate-700 leading-relaxed">{firebaseInitError}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B132B] text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Retry Connection</span>
+          </button>
         </div>
       </div>
     );
