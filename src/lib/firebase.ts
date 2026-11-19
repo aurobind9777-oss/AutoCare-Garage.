@@ -10,7 +10,13 @@ import {
   browserPopupRedirectResolver,
   type Auth,
 } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, type Firestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  getFirestore,
+  doc,
+  getDocFromServer,
+  type Firestore,
+} from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 export const SUPER_ADMIN_EMAIL = 'aurobind9777@gmail.com';
@@ -46,7 +52,14 @@ const localAppletConfigs = import.meta.glob<{ default?: FirebaseAppletConfig }>(
 const localConfig: FirebaseAppletConfig = Object.values(localAppletConfigs)[0]?.default ?? {};
 
 function cleanEnvValue(value?: string): string {
-  const trimmed = (value ?? '').trim();
+  let trimmed = (value ?? '').trim();
+  if (!trimmed) return '';
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
   if (!trimmed) return '';
   const upper = trimmed.toUpperCase();
   if (
@@ -59,6 +72,29 @@ function cleanEnvValue(value?: string): string {
     return '';
   }
   return trimmed;
+}
+
+const resolvedProjectId =
+  cleanEnvValue(import.meta.env.VITE_FIREBASE_PROJECT_ID) ||
+  cleanEnvValue(localConfig.projectId) ||
+  DEFAULT_FIREBASE_CONFIG.projectId;
+
+const rawEnvDatabaseId = cleanEnvValue(import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+const rawLocalDatabaseId = cleanEnvValue(localConfig.firestoreDatabaseId);
+
+// Guard against accidentally targeting "(default)" on gen-lang-client-0430430062, which only uses the named DB.
+function resolveDatabaseId(): string {
+  const candidate = rawEnvDatabaseId || rawLocalDatabaseId || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId;
+  if (
+    resolvedProjectId === DEFAULT_FIREBASE_CONFIG.projectId &&
+    (candidate === '(default)' || candidate.toLowerCase() === 'default')
+  ) {
+    console.warn(
+      '[AutoCare Firebase] Ignoring invalid "(default)" database override for project gen-lang-client-0430430062; using named Firestore database.'
+    );
+    return DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId;
+  }
+  return candidate;
 }
 
 const resolvedMeasurementId =
@@ -74,10 +110,7 @@ const firebaseConfig = {
     cleanEnvValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) ||
     cleanEnvValue(localConfig.authDomain) ||
     DEFAULT_FIREBASE_CONFIG.authDomain,
-  projectId:
-    cleanEnvValue(import.meta.env.VITE_FIREBASE_PROJECT_ID) ||
-    cleanEnvValue(localConfig.projectId) ||
-    DEFAULT_FIREBASE_CONFIG.projectId,
+  projectId: resolvedProjectId,
   storageBucket:
     cleanEnvValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) ||
     cleanEnvValue(localConfig.storageBucket) ||
@@ -93,27 +126,12 @@ const firebaseConfig = {
   ...(resolvedMeasurementId ? { measurementId: resolvedMeasurementId } : {}),
 };
 
-const firestoreDatabaseId =
-  cleanEnvValue(import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID) ||
-  cleanEnvValue(localConfig.firestoreDatabaseId) ||
-  DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId;
-
+export const firestoreDatabaseId = resolveDatabaseId();
 export let firebaseInitError: string | null = null;
 
 let initializedApp: FirebaseApp | null = null;
 let initializedDb: Firestore | null = null;
 let initializedStorage: FirebaseStorage | null = null;
-
-try {
-  const existingDefault = getApps().find((a) => a.name === '[DEFAULT]');
-  initializedApp = existingDefault ?? getAppIfExists() ?? initializeApp(firebaseConfig);
-  initializedDb = getFirestore(initializedApp, firestoreDatabaseId);
-  initializedStorage = getStorage(initializedApp);
-} catch (err) {
-  const message = err instanceof Error ? err.message : String(err);
-  firebaseInitError = `Unable to initialize Firebase services: ${message}`;
-  console.error('[AutoCare Firebase]', firebaseInitError, err);
-}
 
 function getAppIfExists(): FirebaseApp | null {
   try {
@@ -121,6 +139,36 @@ function getAppIfExists(): FirebaseApp | null {
   } catch {
     return null;
   }
+}
+
+function createFirestoreInstance(firebaseApp: FirebaseApp, databaseId: string): Firestore {
+  try {
+    return initializeFirestore(
+      firebaseApp,
+      {
+        experimentalAutoDetectLongPolling: true,
+        ignoreUndefinedProperties: true,
+      },
+      databaseId
+    );
+  } catch {
+    return getFirestore(firebaseApp, databaseId);
+  }
+}
+
+try {
+  const existingDefault = getApps().find((a) => a.name === '[DEFAULT]');
+  initializedApp = existingDefault ?? getAppIfExists() ?? initializeApp(firebaseConfig);
+  initializedDb = createFirestoreInstance(initializedApp, firestoreDatabaseId);
+  initializedStorage = getStorage(initializedApp);
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  firebaseInitError = `Unable to initialize Firebase services: ${message}`;
+  console.error('[AutoCare Firebase] Initialization failure:', {
+    projectId: firebaseConfig.projectId,
+    firestoreDatabaseId,
+    message,
+  });
 }
 
 function createPrimaryAuth(): Auth {
@@ -230,10 +278,17 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
-export async function testFirestoreConnection(): Promise<{ connected: boolean; error?: string }> {
+export interface FirestoreConnectionStatus {
+  connected: boolean;
+  code?: 'permission-denied' | 'unavailable' | 'not-found' | 'invalid-database' | 'init-error' | 'unknown';
+  error?: string;
+}
+
+export async function testFirestoreConnection(): Promise<FirestoreConnectionStatus> {
   if (firebaseInitError || !db) {
     return {
       connected: false,
+      code: 'init-error',
       error: firebaseInitError || 'Firebase is not initialized.',
     };
   }
@@ -243,15 +298,38 @@ export async function testFirestoreConnection(): Promise<{ connected: boolean; e
   } catch (error) {
     const code = (error as { code?: string })?.code || '';
     const msg = error instanceof Error ? error.message : String(error);
-    if (msg.includes('the client is offline') || code === 'unavailable') {
-      return { connected: false, error: 'Firestore client is offline. Verify network connectivity.' };
-    }
-    if (code === 'not-found' && msg.includes('5 NOT_FOUND')) {
+    console.error('[AutoCare Firestore] Connectivity check error:', {
+      code: code || 'unknown',
+      message: msg,
+      projectId: firebaseConfig.projectId,
+      firestoreDatabaseId,
+    });
+
+    if (code === 'permission-denied') {
       return {
-        connected: false,
-        error: 'Configured Firestore database was not found.',
+        connected: true,
+        code: 'permission-denied',
+        error: 'Firestore reachable, but security rules denied read on garages/garage-1.',
       };
     }
-    return { connected: true };
+    if (code === 'not-found' || msg.includes('5 NOT_FOUND')) {
+      return {
+        connected: false,
+        code: 'invalid-database',
+        error: `Configured Firestore database "${firestoreDatabaseId}" was not found on project "${firebaseConfig.projectId}".`,
+      };
+    }
+    if (msg.includes('the client is offline') || code === 'unavailable' || code === 'deadline-exceeded') {
+      return {
+        connected: false,
+        code: 'unavailable',
+        error: 'Firestore client is offline or blocked by network/proxy.',
+      };
+    }
+    return {
+      connected: false,
+      code: 'unknown',
+      error: msg,
+    };
   }
 }

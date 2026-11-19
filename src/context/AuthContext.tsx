@@ -15,18 +15,23 @@ import {
 import {
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   setDoc,
   updateDoc,
+  enableNetwork,
   collection,
   query,
   where,
   runTransaction,
   serverTimestamp,
+  type DocumentReference,
+  type DocumentSnapshot,
 } from 'firebase/firestore';
 import {
   auth,
   db,
+  firestoreDatabaseId,
   googleProvider,
   SUPER_ADMIN_EMAIL,
   testFirestoreConnection,
@@ -143,20 +148,61 @@ function mapFirebaseAuthError(err: unknown): string {
   }
 }
 
-function mapFirestoreSyncError(err: unknown): string {
+function mapFirestoreSyncError(err: unknown, uid?: string): string {
   const code = (err as { code?: string })?.code || '';
-  if (import.meta.env.DEV && err) {
-    console.error('[AutoCare Firestore] User profile sync error:', code || 'unknown', err);
-  }
+  const rawMessage = err instanceof Error ? err.message : String(err);
+  const lowerMsg = rawMessage.toLowerCase();
+
+  console.error('[AutoCare Firestore] User profile sync error:', {
+    code: code || 'unknown',
+    message: rawMessage,
+    firestoreDatabaseId,
+    uid: uid || auth?.currentUser?.uid || null,
+    collectionPath: uid ? `users/${uid}` : 'users/{uid}',
+  });
+
   if (code === 'permission-denied') {
-    return 'Signed in, but Firestore Security Rules denied profile access (permission-denied). Please verify your email or contact Super Admin.';
+    return 'Signed in, but Firestore Security Rules denied profile access (permission-denied). Verify your email address and Firestore rules for users/{uid}.';
+  }
+  if (
+    code === 'not-found' ||
+    rawMessage.includes('5 NOT_FOUND') ||
+    (lowerMsg.includes('database') && lowerMsg.includes('not found'))
+  ) {
+    return `Signed in, but Firestore database "${firestoreDatabaseId}" was not found (not-found). Verify VITE_FIREBASE_FIRESTORE_DATABASE_ID.`;
   }
   if (code === 'unavailable' || code === 'deadline-exceeded') {
-    return 'Signed in, but Firestore is currently unreachable. Please check your connection and click Retry.';
+    return `Signed in, but Firestore (${firestoreDatabaseId}) is currently unreachable (${code}). Please check your internet connection, VPN, or browser privacy/firewall settings and click Retry.`;
+  }
+  if (code === 'invalid-argument' || code === 'failed-precondition') {
+    return `Signed in, but Firestore rejected the profile operation (${code}). Please retry or contact support.`;
   }
   return code
     ? `Signed in, but failed to load your user profile from Firestore (${code}). Please retry.`
     : 'Signed in, but could not load your user profile from Firestore. Please retry.';
+}
+
+async function getDocWithNetworkRetry(ref: DocumentReference): Promise<DocumentSnapshot> {
+  try {
+    return await getDoc(ref);
+  } catch (err) {
+    const code = (err as { code?: string })?.code || '';
+    if (code === 'unavailable' || code === 'deadline-exceeded') {
+      console.warn('[AutoCare Firestore] Initial profile read failed, enabling network and retrying...', {
+        code,
+        path: ref.path,
+        firestoreDatabaseId,
+      });
+      try {
+        await enableNetwork(db);
+      } catch {
+        // Ignore if already enabled
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return await getDocFromServer(ref);
+    }
+    throw err;
+  }
 }
 
 const VALID_ROLES: UserRole[] = ['super_admin', 'garage_manager', 'mechanic', 'customer'];
@@ -164,17 +210,20 @@ const VALID_ROLES: UserRole[] = ['super_admin', 'garage_manager', 'mechanic', 'c
 function normalizeUserAccount(raw: Partial<UserAccount>, user: User): UserAccount {
   const emailLower = (raw.email || user.email || '').toLowerCase();
   const safeRole: UserRole = raw.role && VALID_ROLES.includes(raw.role) ? raw.role : 'customer';
-  return {
+  const normalized: UserAccount = {
     uid: raw.uid || user.uid,
     email: emailLower,
     displayName: raw.displayName || user.displayName || emailLower.split('@')[0] || 'Customer',
     role: safeRole,
     garageId: typeof raw.garageId === 'string' ? raw.garageId : '',
-    claimedInviteId: raw.claimedInviteId,
     isActive: raw.isActive !== false,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
   };
+  if (typeof raw.claimedInviteId === 'string' && raw.claimedInviteId.length > 0) {
+    normalized.claimedInviteId = raw.claimedInviteId;
+  }
+  return normalized;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -211,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const userRef = doc(db, 'users', user.uid);
-      const existingSnap = await getDoc(userRef);
+      const existingSnap = await getDocWithNetworkRetry(userRef);
 
       // Check if there is a pending Super Admin staff invite matching this verified email
       let claimedInvite: (StaffInvite & { id: string }) | null = null;
@@ -336,16 +385,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (existingSnap.exists()) {
         const existingData = normalizeUserAccount(existingSnap.data() as Partial<UserAccount>, user);
         if (isBootstrappedSuperAdmin && existingData.role !== 'super_admin') {
-          await setDoc(
-            userRef,
-            {
-              ...existingData,
-              role: 'super_admin',
-              garageId: '',
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
+          await updateDoc(userRef, {
+            role: 'super_admin',
+            garageId: '',
+            updatedAt: serverTimestamp(),
+          });
           try {
             await seedInitialPlatformData(user.uid, emailLower);
           } catch (seedErr) {
@@ -358,6 +402,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await seedInitialPlatformData(user.uid, emailLower);
           } catch (seedErr) {
             console.warn('Non-blocking initial platform seed warning:', seedErr);
+          }
+        } else if (existingData.role === 'customer') {
+          try {
+            const custRef = doc(db, 'customers', user.uid);
+            const existingCustSnap = await getDoc(custRef);
+            if (!existingCustSnap.exists()) {
+              await setDoc(custRef, {
+                uid: user.uid,
+                name: existingData.displayName,
+                email: emailLower,
+                phone: (pendingPhone || user.phoneNumber || '').slice(0, 30),
+                address: '',
+                city: '',
+                pincode: '',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
+            }
+          } catch (custErr) {
+            console.warn('Non-blocking customer profile backfill warning:', custErr);
           }
         }
         return existingData;
@@ -441,9 +505,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         try {
           const acc = await syncUserAccount(user);
-          if (mounted) setAccount(acc);
+          if (mounted) {
+            setAccount(acc);
+            setFirestoreOnline(true);
+          }
         } catch (err) {
-          if (mounted) setAuthError(mapFirestoreSyncError(err));
+          if (mounted) {
+            const code = (err as { code?: string })?.code;
+            if (code === 'unavailable' || code === 'deadline-exceeded') {
+              setFirestoreOnline(false);
+            }
+            setAuthError(mapFirestoreSyncError(err, user.uid));
+          }
         }
       } else {
         setAccount(null);
@@ -489,13 +562,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
+    try {
+      await user.getIdToken();
+    } catch {
+      // Non-fatal; Auth state still holds session
+    }
+
     setFirebaseUser(user);
     setEmailVerified(Boolean(user.emailVerified));
     try {
       const acc = await syncUserAccount(user);
       setAccount(acc);
+      setFirestoreOnline(true);
     } catch (syncErr) {
-      setAuthError(mapFirestoreSyncError(syncErr));
+      setAuthError(mapFirestoreSyncError(syncErr, user.uid));
     }
     return true;
   }, [syncUserAccount]);
@@ -531,8 +611,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const acc = await syncUserAccount(user);
         setAccount(acc);
+        setFirestoreOnline(true);
       } catch (syncErr) {
-        setAuthError(mapFirestoreSyncError(syncErr));
+        setAuthError(mapFirestoreSyncError(syncErr, user.uid));
       }
       return true;
     },
@@ -576,7 +657,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const acc = await syncUserAccount(user, phone);
         setAccount(acc);
       } catch (syncErr) {
-        setAuthError(mapFirestoreSyncError(syncErr));
+        setAuthError(mapFirestoreSyncError(syncErr, user.uid));
       }
       return true;
     },
@@ -629,8 +710,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const acc = await syncUserAccount(auth.currentUser);
         setAccount(acc);
+        setFirestoreOnline(true);
       } catch (syncErr) {
-        setAuthError(mapFirestoreSyncError(syncErr));
+        setAuthError(mapFirestoreSyncError(syncErr, auth.currentUser.uid));
       }
     }
     return verified;
@@ -640,11 +722,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth.currentUser) return;
     setAuthError(null);
     try {
+      await enableNetwork(db);
+    } catch {
+      // Non-fatal if already enabled
+    }
+    try {
       await auth.currentUser.getIdToken(true);
       const acc = await syncUserAccount(auth.currentUser);
       setAccount(acc);
+      setFirestoreOnline(true);
     } catch (err) {
-      setAuthError(mapFirestoreSyncError(err));
+      const conn = await testFirestoreConnection();
+      setFirestoreOnline(conn.connected);
+      if (!conn.connected && conn.code === 'invalid-database') {
+        setAuthError(conn.error || mapFirestoreSyncError(err, auth.currentUser?.uid));
+      } else {
+        setAuthError(mapFirestoreSyncError(err, auth.currentUser?.uid));
+      }
     }
   }, [syncUserAccount]);
 
