@@ -1,6 +1,7 @@
 import type { Garage, PlatformSettings, ServiceCategory, ServicePackage } from '../types/autocare';
+import { GARAGE_DEFAULT_IMAGES, HERO_WORKSHOP_IMG } from '../utils/imageHelpers';
 
-export const HERO_WORKSHOP_IMAGE = '/src/assets/images/hero_autocare_workshop_1795090555003.jpg';
+export const HERO_WORKSHOP_IMAGE = HERO_WORKSHOP_IMG;
 
 export const DEFAULT_TIME_SLOTS = [
   '09:00 AM',
@@ -32,7 +33,7 @@ export const DEMO_SIX_GARAGES: Omit<Garage, 'createdAt' | 'updatedAt'>[] = [
     operatingHours: '09:00 AM - 07:00 PM (Mon - Sat)',
     dailyCapacity: 12,
     slotDurationMins: 90,
-    photoUrl: '/src/assets/images/garage_hub_central_1795090555315.jpg',
+    photoUrl: GARAGE_DEFAULT_IMAGES['garage-1'],
     managerUid: '',
     managerName: 'Unassigned',
     isActive: true,
@@ -50,7 +51,7 @@ export const DEMO_SIX_GARAGES: Omit<Garage, 'createdAt' | 'updatedAt'>[] = [
     operatingHours: '08:30 AM - 07:30 PM (Mon - Sat)',
     dailyCapacity: 10,
     slotDurationMins: 90,
-    photoUrl: '/src/assets/images/garage_hub_west_1795090555283.jpg',
+    photoUrl: GARAGE_DEFAULT_IMAGES['garage-2'],
     managerUid: '',
     managerName: 'Unassigned',
     isActive: true,
@@ -68,7 +69,7 @@ export const DEMO_SIX_GARAGES: Omit<Garage, 'createdAt' | 'updatedAt'>[] = [
     operatingHours: '09:00 AM - 07:00 PM (Mon - Sun)',
     dailyCapacity: 12,
     slotDurationMins: 90,
-    photoUrl: '/src/assets/images/garage_hub_east_1795090554790.jpg',
+    photoUrl: GARAGE_DEFAULT_IMAGES['garage-3'],
     managerUid: '',
     managerName: 'Unassigned',
     isActive: true,
@@ -86,7 +87,7 @@ export const DEMO_SIX_GARAGES: Omit<Garage, 'createdAt' | 'updatedAt'>[] = [
     operatingHours: '09:00 AM - 06:30 PM (Mon - Sat)',
     dailyCapacity: 10,
     slotDurationMins: 90,
-    photoUrl: '/src/assets/images/garage_hub_south_1795090554540.jpg',
+    photoUrl: GARAGE_DEFAULT_IMAGES['garage-4'],
     managerUid: '',
     managerName: 'Unassigned',
     isActive: true,
@@ -104,7 +105,7 @@ export const DEMO_SIX_GARAGES: Omit<Garage, 'createdAt' | 'updatedAt'>[] = [
     operatingHours: '09:00 AM - 07:00 PM (Mon - Sat)',
     dailyCapacity: 10,
     slotDurationMins: 90,
-    photoUrl: '/src/assets/images/garage_hub_north_1795090555534.jpg',
+    photoUrl: GARAGE_DEFAULT_IMAGES['garage-5'],
     managerUid: '',
     managerName: 'Unassigned',
     isActive: true,
@@ -122,7 +123,7 @@ export const DEMO_SIX_GARAGES: Omit<Garage, 'createdAt' | 'updatedAt'>[] = [
     operatingHours: '08:00 AM - 08:00 PM (Mon - Sun)',
     dailyCapacity: 14,
     slotDurationMins: 90,
-    photoUrl: '/src/assets/images/garage_hub_metro_1795090555722.jpg',
+    photoUrl: GARAGE_DEFAULT_IMAGES['garage-6'],
     managerUid: '',
     managerName: 'Unassigned',
     isActive: true,

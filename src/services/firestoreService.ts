@@ -676,6 +676,9 @@ export async function acceptGarageBooking(
   actorRole: UserRole,
   expectedGarageId?: string
 ): Promise<void> {
+  if (actorRole !== 'super_admin' && actorRole !== 'garage_manager') {
+    throw new Error('Unauthorized: only a Garage Manager or Super Admin can accept bookings.');
+  }
   try {
     let customerId = '';
     let garageId = '';
@@ -766,6 +769,9 @@ export async function rejectGarageBooking(
   actorRole: UserRole,
   expectedGarageId?: string
 ): Promise<void> {
+  if (actorRole !== 'super_admin' && actorRole !== 'garage_manager') {
+    throw new Error('Unauthorized: only a Garage Manager or Super Admin can reject bookings.');
+  }
   if (!reason.trim() || reason.trim().length < 3) {
     throw new Error('A clear rejection reason (at least 3 characters) is required.');
   }
@@ -1120,6 +1126,9 @@ export async function assignMechanicAndCreateJobCard(
   actorUid: string,
   actorRole: UserRole
 ): Promise<string> {
+  if (actorRole !== 'super_admin' && actorRole !== 'garage_manager') {
+    throw new Error('Unauthorized: only a Garage Manager or Super Admin can assign mechanics.');
+  }
   const jobCardId = cleanId('jc');
   const jobCardCode = `JC-${Math.floor(10000 + Math.random() * 90000)}`;
 
@@ -1136,6 +1145,16 @@ export async function assignMechanicAndCreateJobCard(
 
       if (mechanic.garageId !== booking.garageId) {
         throw new Error('Cross-garage error: Mechanic does not belong to this booking garage.');
+      }
+
+      const garageSnap = await tx.get(doc(db, 'garages', booking.garageId));
+      if (!garageSnap.exists()) throw new Error('Garage record missing.');
+      const garage = garageSnap.data() as Garage;
+      if (actorRole !== 'super_admin' && garage.managerUid !== actorUid) {
+        throw new Error('Unauthorized: only the assigned garage manager or Super Admin can assign a mechanic.');
+      }
+      if (!['Accepted', 'Confirmed'].includes(booking.status)) {
+        throw new Error(`Mechanic can only be assigned to Accepted/Confirmed bookings (current: ${booking.status}).`);
       }
 
       customerId = booking.customerId;

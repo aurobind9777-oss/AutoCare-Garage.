@@ -26,14 +26,21 @@ import {
   Power,
   Eye,
   Plus,
+  CheckCircle2,
+  XCircle,
+  Upload,
+  RotateCcw,
 } from 'lucide-react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile, signOut } from 'firebase/auth';
 import { db, getSecondaryAuth, handleFirestoreError, OperationType } from '../../lib/firebase';
 import {
+  acceptGarageBooking,
   assignExistingStaffDirectly,
+  assignMechanicAndCreateJobCard,
   createStaffInvite,
   markNotificationRead,
+  rejectGarageBooking,
   revokeStaffInvite,
   seedInitialPlatformData,
   updateGarage,
@@ -48,8 +55,9 @@ import {
   getTodayISO,
   toISOStringSafe,
 } from '../../utils/exportHelpers';
-import { HERO_WORKSHOP_IMAGE } from '../../data/seedCatalog';
+import { getFallbackGarageImage, uploadGaragePhotoToStorage } from '../../utils/imageHelpers';
 import { ActiveStatusLabel, BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadge';
+import { GarageImage } from '../common/GarageImage';
 import { GarageManagerDashboard } from './GarageManagerDashboard';
 import { useToast } from '../common/ToastProvider';
 import { useAuth } from '../../context/AuthContext';
@@ -121,7 +129,7 @@ export function SuperAdminDashboard({
   // Drill-down into a specific Garage Dashboard (1..6)
   const [activeGarageView, setActiveGarageView] = useState<{
     garageId: string;
-    initialTab: 'overview' | 'requests' | 'settings';
+    initialTab: 'overview' | 'requests' | 'accepted' | 'rejected' | 'settings';
   } | null>(null);
 
   // Live collections
@@ -151,6 +159,13 @@ export function SuperAdminDashboard({
 
   // Edit Garage modal
   const [editGarage, setEditGarage] = useState<Garage | null>(null);
+  const [uploadingGaragePhoto, setUploadingGaragePhoto] = useState(false);
+
+  // Super Admin booking controls
+  const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
+  const [rejectModalBooking, setRejectModalBooking] = useState<Booking | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [selectedMechByBooking, setSelectedMechByBooking] = useState<Record<string, string>>({});
 
   // Staff Invite / Provisioning form
   const [staffRole, setStaffRole] = useState<'garage_manager' | 'mechanic'>('garage_manager');
@@ -294,6 +309,68 @@ export function SuperAdminDashboard({
       return matchesStatus && matchesSearch;
     });
   }, [garages, garageSearch, garageStatusFilter]);
+
+  const filteredBookings = useMemo(() => {
+    const filtered = bookings.filter(
+      (b) =>
+        (bookingGarageFilter === 'all' || b.garageId === bookingGarageFilter) &&
+        (bookingStatusFilter === 'all' || b.status === bookingStatusFilter)
+    );
+    return filtered.sort((a, b) => {
+      if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+      if (b.status === 'Pending' && a.status !== 'Pending') return 1;
+      return (b.appointmentDate || '').localeCompare(a.appointmentDate || '');
+    });
+  }, [bookings, bookingGarageFilter, bookingStatusFilter]);
+
+  const handleAcceptBooking = async (booking: Booking) => {
+    if (!booking.id || busyBookingId) return;
+    setBusyBookingId(booking.id);
+    try {
+      await acceptGarageBooking(booking.id, account.uid, 'super_admin');
+      showToast(`Booking ${booking.bookingCode} accepted.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to accept booking.', 'error');
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
+
+  const handleRejectBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectModalBooking?.id || busyBookingId) return;
+    setBusyBookingId(rejectModalBooking.id);
+    try {
+      await rejectGarageBooking(rejectModalBooking.id, rejectReason, account.uid, 'super_admin');
+      showToast(`Booking ${rejectModalBooking.bookingCode} rejected and slot released.`, 'info');
+      setRejectModalBooking(null);
+      setRejectReason('');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to reject booking.', 'error');
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
+
+  const handleAssignMechanicForBooking = async (booking: Booking) => {
+    if (!booking.id || busyBookingId) return;
+    const garageMechs = mechanics.filter((m) => m.isActive && m.garageId === booking.garageId);
+    const chosenUid = selectedMechByBooking[booking.id] || garageMechs[0]?.uid;
+    const mech = garageMechs.find((m) => m.uid === chosenUid);
+    if (!mech) {
+      showToast(`No active mechanic selected for ${booking.garageName}.`, 'error');
+      return;
+    }
+    setBusyBookingId(booking.id);
+    try {
+      await assignMechanicAndCreateJobCard(booking.id, mech, account.uid, 'super_admin');
+      showToast(`Assigned ${mech.name} to ${booking.bookingCode} and opened Job Card.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to assign mechanic.', 'error');
+    } finally {
+      setBusyBookingId(null);
+    }
+  };
 
   const handleProvisionStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -470,10 +547,10 @@ export function SuperAdminDashboard({
               <div key={g.garageId} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between">
                 <div>
                   <div className="h-40 bg-slate-100 relative overflow-hidden">
-                    <img
-                      src={g.photoUrl || HERO_WORKSHOP_IMAGE}
+                    <GarageImage
+                      garageId={g.garageId}
+                      photoUrl={g.photoUrl}
                       alt={g.name}
-                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -720,7 +797,12 @@ export function SuperAdminDashboard({
           {tab === 'bookings' && (
             <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-bold text-[#0B132B]">All Six-Garage Bookings ({bookings.length})</h2>
+                <div>
+                  <h2 className="text-lg font-bold text-[#0B132B]">All Six-Garage Bookings ({filteredBookings.length})</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Accept or reject Pending bookings and assign garage-scoped mechanics to Accepted bookings.
+                  </p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <select value={bookingGarageFilter} onChange={(e) => setBookingGarageFilter(e.target.value)} className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg">
                     <option value="all">All 6 Garages</option>
@@ -736,6 +818,50 @@ export function SuperAdminDashboard({
                   </select>
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('all')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${
+                    bookingStatusFilter === 'all' ? 'border-[#0B132B] bg-slate-50' : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="text-[11px] text-slate-500">All Bookings</div>
+                  <div className="text-lg font-bold text-[#0B132B] tabular-nums">{platformKpis.totalBookings}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('Pending')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${
+                    bookingStatusFilter === 'Pending' ? 'border-amber-600 bg-amber-50' : 'border-slate-200 hover:bg-amber-50/40'
+                  }`}
+                >
+                  <div className="text-[11px] text-amber-700 font-medium">Pending Review</div>
+                  <div className="text-lg font-bold text-amber-800 tabular-nums">{platformKpis.pendingBookings}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('Accepted')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${
+                    bookingStatusFilter === 'Accepted' ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 hover:bg-emerald-50/40'
+                  }`}
+                >
+                  <div className="text-[11px] text-emerald-700 font-medium">Accepted / Active</div>
+                  <div className="text-lg font-bold text-emerald-800 tabular-nums">{platformKpis.acceptedBookings}</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingStatusFilter('Rejected')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${
+                    bookingStatusFilter === 'Rejected' ? 'border-red-600 bg-red-50' : 'border-slate-200 hover:bg-red-50/40'
+                  }`}
+                >
+                  <div className="text-[11px] text-red-700 font-medium">Rejected</div>
+                  <div className="text-lg font-bold text-red-800 tabular-nums">{platformKpis.rejectedBookings}</div>
+                </button>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-200 text-slate-500">
@@ -745,22 +871,136 @@ export function SuperAdminDashboard({
                       <th className="py-2 pr-3">Customer</th>
                       <th className="py-2 pr-3">Vehicle &amp; Service</th>
                       <th className="py-2 pr-3">Slot</th>
-                      <th className="py-2">Status</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {bookings
-                      .filter((b) => (bookingGarageFilter === 'all' || b.garageId === bookingGarageFilter) && (bookingStatusFilter === 'all' || b.status === bookingStatusFilter))
-                      .map((b) => (
-                        <tr key={b.id}>
-                          <td className="py-2.5 pr-3 font-mono font-bold text-[#0B132B]">{b.bookingCode}</td>
-                          <td className="py-2.5 pr-3 font-semibold">{b.garageName}</td>
-                          <td className="py-2.5 pr-3">{b.customerName} ({b.customerPhone})</td>
-                          <td className="py-2.5 pr-3">{b.vehicleBrand} {b.vehicleModel} ({b.registrationNumber}) · {b.packageName}</td>
-                          <td className="py-2.5 pr-3 tabular-nums">{b.appointmentDate} {b.appointmentTime}</td>
-                          <td className="py-2.5"><BookingStatusBadge status={b.status} /></td>
-                        </tr>
-                      ))}
+                    {filteredBookings.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
+                          No bookings match the selected garage/status filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredBookings.map((b) => {
+                        const garageMechs = mechanics.filter((m) => m.isActive && m.garageId === b.garageId);
+                        const isBusy = busyBookingId === b.id;
+                        return (
+                          <tr key={b.id} className="align-top">
+                            <td className="py-3 pr-3 font-mono font-bold text-[#0B132B] whitespace-nowrap">{b.bookingCode}</td>
+                            <td className="py-3 pr-3 font-semibold">{b.garageName}</td>
+                            <td className="py-3 pr-3">
+                              <div className="font-medium text-slate-900">{b.customerName}</div>
+                              <div className="text-slate-500">{b.customerPhone}</div>
+                            </td>
+                            <td className="py-3 pr-3">
+                              <div>{b.vehicleBrand} {b.vehicleModel} ({b.registrationNumber})</div>
+                              <div className="text-slate-500">{b.packageName}</div>
+                            </td>
+                            <td className="py-3 pr-3 tabular-nums whitespace-nowrap">{b.appointmentDate} {b.appointmentTime}</td>
+                            <td className="py-3 pr-3"><BookingStatusBadge status={b.status} /></td>
+                            <td className="py-3">
+                              {b.status === 'Pending' && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => handleAcceptBooking(b)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 text-white text-[11px] font-semibold rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>{isBusy ? 'Saving...' : 'Accept'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => {
+                                      setRejectReason('');
+                                      setRejectModalBooking(b);
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-600 text-white text-[11px] font-semibold rounded-md hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    <span>Reject</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {['Accepted', 'Confirmed'].includes(b.status) && !b.assignedMechanicId && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {garageMechs.length > 0 ? (
+                                    <>
+                                      <select
+                                        value={selectedMechByBooking[b.id!] || garageMechs[0]?.uid || ''}
+                                        onChange={(e) =>
+                                          setSelectedMechByBooking((prev) => ({
+                                            ...prev,
+                                            [b.id!]: e.target.value,
+                                          }))
+                                        }
+                                        className="px-2 py-1 text-[11px] border border-slate-300 rounded-md bg-white max-w-[160px]"
+                                      >
+                                        {garageMechs.map((m) => (
+                                          <option key={m.uid} value={m.uid}>
+                                            {m.name} {m.isAvailable ? '' : '(Busy)'}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        type="button"
+                                        disabled={isBusy}
+                                        onClick={() => handleAssignMechanicForBooking(b)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0B132B] text-white text-[11px] font-semibold rounded-md hover:bg-slate-800 disabled:opacity-50"
+                                      >
+                                        <Wrench className="w-3 h-3" />
+                                        <span>{isBusy ? 'Assigning...' : 'Assign Mechanic'}</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setStaffRole('mechanic');
+                                        setStaffGarageId(b.garageId);
+                                        setTab('mechanics');
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-slate-300 text-[#0B132B] text-[11px] font-semibold rounded-md hover:bg-slate-50"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      <span>Authorize {b.garageId} Mechanic</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {!(b.status === 'Pending') &&
+                                !(['Accepted', 'Confirmed'].includes(b.status) && !b.assignedMechanicId) && (
+                                  <div className="space-y-1">
+                                    {b.assignedMechanicName && (
+                                      <div className="text-[11px] text-slate-600">
+                                        Mechanic: <strong>{b.assignedMechanicName}</strong>
+                                      </div>
+                                    )}
+                                    {b.status === 'Rejected' && b.rejectionReason && (
+                                      <div className="text-[11px] text-red-700 max-w-[200px] truncate" title={b.rejectionReason}>
+                                        Reason: {b.rejectionReason}
+                                      </div>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveGarageView({ garageId: b.garageId, initialTab: 'accepted' })}
+                                      className="text-[11px] font-semibold text-[#0B132B] hover:underline"
+                                    >
+                                      Manage in {b.garageId} →
+                                    </button>
+                                  </div>
+                                )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1163,29 +1403,34 @@ export function SuperAdminDashboard({
 
       {/* Edit Garage Modal */}
       {editGarage && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4 overflow-y-auto">
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              await updateGarage(
-                editGarage.garageId,
-                {
-                  name: editGarage.name,
-                  city: editGarage.city,
-                  address: editGarage.address,
-                  phone: editGarage.phone,
-                  email: editGarage.email,
-                  operatingHours: editGarage.operatingHours,
-                  dailyCapacity: Number(editGarage.dailyCapacity),
-                  isActive: editGarage.isActive,
-                  isDemoInfo: false,
-                },
-                { uid: account.uid, role: 'super_admin', email: account.email }
-              );
-              showToast(`Updated ${editGarage.name}.`, 'success');
-              setEditGarage(null);
+              try {
+                await updateGarage(
+                  editGarage.garageId,
+                  {
+                    name: editGarage.name,
+                    city: editGarage.city,
+                    address: editGarage.address,
+                    phone: editGarage.phone,
+                    email: editGarage.email,
+                    operatingHours: editGarage.operatingHours,
+                    dailyCapacity: Number(editGarage.dailyCapacity),
+                    photoUrl: (editGarage.photoUrl || '').trim().slice(0, 500),
+                    isActive: editGarage.isActive,
+                    isDemoInfo: false,
+                  },
+                  { uid: account.uid, role: 'super_admin', email: account.email }
+                );
+                showToast(`Updated ${editGarage.name}.`, 'success');
+                setEditGarage(null);
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : 'Failed to update garage.', 'error');
+              }
             }}
-            className="bg-white border border-slate-200 rounded-xl max-w-lg w-full p-6 space-y-3"
+            className="bg-white border border-slate-200 rounded-xl max-w-lg w-full p-6 space-y-3 my-8"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-[#0B132B]">Edit {editGarage.code} ({editGarage.garageId})</h3>
@@ -1200,6 +1445,72 @@ export function SuperAdminDashboard({
                 {editGarage.isActive ? 'Active' : 'Inactive'}
               </button>
             </div>
+
+            <div className="h-36 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+              <GarageImage
+                garageId={editGarage.garageId}
+                photoUrl={editGarage.photoUrl}
+                alt={editGarage.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold text-slate-700">Garage Photo URL or Upload to Firebase Storage</label>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  maxLength={500}
+                  value={editGarage.photoUrl || ''}
+                  onChange={(e) => setEditGarage({ ...editGarage, photoUrl: e.target.value })}
+                  placeholder="https://firebasestorage.googleapis.com/... or leave default"
+                  className="flex-1 min-w-[200px] px-3 py-2 text-xs border border-slate-300 rounded-lg"
+                />
+                <label className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg cursor-pointer shrink-0">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{uploadingGaragePhoto ? 'Uploading...' : 'Upload'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingGaragePhoto}
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setUploadingGaragePhoto(true);
+                      try {
+                        const uploadedRef = await uploadGaragePhotoToStorage(editGarage.garageId, file);
+                        setEditGarage((prev) => (prev ? { ...prev, photoUrl: uploadedRef } : prev));
+                        showToast('Garage photo uploaded to Firebase Storage. Click Save Changes to apply.', 'success');
+                      } catch (err) {
+                        showToast(
+                          err instanceof Error
+                            ? `Storage upload failed: ${err.message}`
+                            : 'Failed to upload image to Firebase Storage.',
+                          'error'
+                        );
+                      } finally {
+                        setUploadingGaragePhoto(false);
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditGarage({
+                      ...editGarage,
+                      photoUrl: getFallbackGarageImage(editGarage.garageId),
+                    })
+                  }
+                  className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-semibold border border-slate-300 rounded-lg hover:bg-slate-50"
+                  title="Reset to default branch photo"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
             <input required value={editGarage.name} onChange={(e) => setEditGarage({ ...editGarage, name: e.target.value })} placeholder="Garage Name" className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" />
             <input required value={editGarage.city} onChange={(e) => setEditGarage({ ...editGarage, city: e.target.value })} placeholder="City / Zone" className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" />
             <input required value={editGarage.address} onChange={(e) => setEditGarage({ ...editGarage, address: e.target.value })} placeholder="Full Address" className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg" />
@@ -1213,7 +1524,47 @@ export function SuperAdminDashboard({
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setEditGarage(null)} className="px-4 py-2 text-xs font-semibold border border-slate-300 rounded-lg">Cancel</button>
-              <button type="submit" className="px-4 py-2 text-xs font-semibold bg-[#0B132B] text-white rounded-lg">Save Changes</button>
+              <button type="submit" disabled={uploadingGaragePhoto} className="px-4 py-2 text-xs font-semibold bg-[#0B132B] text-white rounded-lg disabled:opacity-50">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Reject Booking Confirmation Modal */}
+      {rejectModalBooking && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+          <form onSubmit={handleRejectBookingSubmit} className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-base font-bold text-slate-900">
+              Confirm Reject — {rejectModalBooking.bookingCode}
+            </h3>
+            <p className="text-xs text-slate-600">
+              Rejecting this booking at <strong>{rejectModalBooking.garageName}</strong> will release the reserved time slot and notify <strong>{rejectModalBooking.customerName}</strong>. Please enter a clear reason:
+            </p>
+            <textarea
+              required
+              minLength={3}
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g., Service bay unavailable at requested slot..."
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={Boolean(busyBookingId)}
+                onClick={() => setRejectModalBooking(null)}
+                className="px-4 py-2 text-xs font-semibold border border-slate-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={Boolean(busyBookingId)}
+                className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {busyBookingId ? 'Rejecting...' : 'Confirm Reject'}
+              </button>
             </div>
           </form>
         </div>

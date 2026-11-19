@@ -50,6 +50,7 @@ import {
 import { downloadInvoicePDF, formatDateTime, formatINR, getTodayISO } from '../../utils/exportHelpers';
 import { BookingWizard } from '../booking/BookingWizard';
 import { ActiveStatusLabel, BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadge';
+import { GarageImage } from '../common/GarageImage';
 import { useToast } from '../common/ToastProvider';
 import { useAuth } from '../../context/AuthContext';
 import type {
@@ -675,8 +676,13 @@ export function CustomerDashboard({
               {garages.map((g) => (
                 <div key={g.garageId} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between">
                   <div>
-                    <div className="h-36 bg-slate-100">
-                      {g.photoUrl && <img src={g.photoUrl} alt={g.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />}
+                    <div className="h-36 bg-slate-100 overflow-hidden">
+                      <GarageImage
+                        garageId={g.garageId}
+                        photoUrl={g.photoUrl}
+                        alt={g.name}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <div className="p-4 space-y-2">
                       <div className="flex items-center justify-between text-xs">

@@ -59,6 +59,7 @@ import {
   toISOStringSafe,
 } from '../../utils/exportHelpers';
 import { ActiveStatusLabel, BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadge';
+import { GarageImage } from '../common/GarageImage';
 import { useToast } from '../common/ToastProvider';
 import { useAuth } from '../../context/AuthContext';
 import type {
@@ -150,6 +151,7 @@ export function GarageManagerDashboard({
   const [reschedTime, setReschedTime] = useState(DEFAULT_TIME_SLOTS[0]);
   const [reschedNote, setReschedNote] = useState('');
   const [selectedMechByBooking, setSelectedMechByBooking] = useState<Record<string, string>>({});
+  const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
 
   // Slot Management state
   const [slotDate, setSlotDate] = useState(getTodayISO());
@@ -290,24 +292,31 @@ export function GarageManagerDashboard({
   );
 
   const handleAccept = async (booking: Booking) => {
+    if (!booking.id || busyBookingId) return;
+    setBusyBookingId(booking.id);
     try {
-      await acceptGarageBooking(booking.id!, account.uid, account.role, garage.garageId);
+      await acceptGarageBooking(booking.id, account.uid, account.role, garage.garageId);
       showToast(`Booking ${booking.bookingCode} accepted at ${garage.code}.`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to accept booking.', 'error');
+    } finally {
+      setBusyBookingId(null);
     }
   };
 
   const handleRejectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rejectModalBooking) return;
+    if (!rejectModalBooking?.id || busyBookingId) return;
+    setBusyBookingId(rejectModalBooking.id);
     try {
-      await rejectGarageBooking(rejectModalBooking.id!, rejectReason, account.uid, account.role, garage.garageId);
+      await rejectGarageBooking(rejectModalBooking.id, rejectReason, account.uid, account.role, garage.garageId);
       showToast(`Booking ${rejectModalBooking.bookingCode} rejected and slot released.`, 'info');
       setRejectModalBooking(null);
       setRejectReason('');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to reject booking.', 'error');
+    } finally {
+      setBusyBookingId(null);
     }
   };
 
@@ -332,17 +341,21 @@ export function GarageManagerDashboard({
   };
 
   const handleAssignMechanic = async (booking: Booking) => {
-    const mechUid = selectedMechByBooking[booking.id!] || mechanics.find((m) => m.isActive)?.uid;
+    if (!booking.id || busyBookingId) return;
+    const mechUid = selectedMechByBooking[booking.id] || mechanics.find((m) => m.isActive)?.uid;
     const mech = mechanics.find((m) => m.uid === mechUid);
     if (!mech) {
       showToast('Select a mechanic from this garage first.', 'error');
       return;
     }
+    setBusyBookingId(booking.id);
     try {
-      await assignMechanicAndCreateJobCard(booking.id!, mech, account.uid, account.role);
+      await assignMechanicAndCreateJobCard(booking.id, mech, account.uid, account.role);
       showToast(`Assigned ${mech.name} and created Job Card.`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to assign mechanic.', 'error');
+    } finally {
+      setBusyBookingId(null);
     }
   };
 
@@ -453,11 +466,24 @@ export function GarageManagerDashboard({
           {/* OVERVIEW */}
           {tab === 'overview' && (
             <div className="space-y-6">
-              <div>
-                <h1 className="text-2xl font-bold text-[#0B132B]">{garage.name} — Garage Dashboard</h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Independent branch workspace ({garage.garageId}) · Manager: {garage.managerName || 'Unassigned'}
-                </p>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col sm:flex-row">
+                <div className="sm:w-56 h-36 sm:h-auto shrink-0 bg-slate-100">
+                  <GarageImage
+                    garageId={garage.garageId}
+                    photoUrl={garage.photoUrl}
+                    alt={garage.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-5 flex flex-col justify-center">
+                  <div className="text-[11px] font-mono font-bold text-red-600 uppercase">
+                    {garage.code} · {garage.city}
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-[#0B132B] mt-0.5">{garage.name} — Garage Dashboard</h1>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Independent branch workspace ({garage.garageId}) · Manager: {garage.managerName || 'Unassigned'} · {garage.operatingHours}
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -501,13 +527,13 @@ export function GarageManagerDashboard({
                           <div className="text-xs text-slate-600">{b.packageName} · Complaint: {b.problemDescription}</div>
                         </div>
                         <div className="flex flex-wrap gap-2 shrink-0">
-                          <button type="button" onClick={() => handleAccept(b)} className="px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">
-                            Accept Booking
+                          <button type="button" disabled={busyBookingId === b.id} onClick={() => handleAccept(b)} className="px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                            {busyBookingId === b.id ? 'Processing...' : 'Accept Booking'}
                           </button>
-                          <button type="button" onClick={() => setRejectModalBooking(b)} className="px-3.5 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700">
+                          <button type="button" disabled={busyBookingId === b.id} onClick={() => { setRejectReason(''); setRejectModalBooking(b); }} className="px-3.5 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50">
                             Reject Booking
                           </button>
-                          <button type="button" onClick={() => setRescheduleModalBooking(b)} className="px-3.5 py-2 border border-slate-300 text-slate-800 text-xs font-semibold rounded-lg hover:bg-slate-50">
+                          <button type="button" disabled={busyBookingId === b.id} onClick={() => setRescheduleModalBooking(b)} className="px-3.5 py-2 border border-slate-300 text-slate-800 text-xs font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-50">
                             Request Reschedule
                           </button>
                         </div>
@@ -549,13 +575,13 @@ export function GarageManagerDashboard({
                       <strong>Customer Complaint:</strong> {b.problemDescription}
                     </p>
                     <div className="flex flex-wrap gap-2.5 pt-1">
-                      <button type="button" onClick={() => handleAccept(b)} className="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700">
-                        ACCEPT BOOKING
+                      <button type="button" disabled={busyBookingId === b.id} onClick={() => handleAccept(b)} className="px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50">
+                        {busyBookingId === b.id ? 'ACCEPTING...' : 'ACCEPT BOOKING'}
                       </button>
-                      <button type="button" onClick={() => setRejectModalBooking(b)} className="px-4 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700">
+                      <button type="button" disabled={busyBookingId === b.id} onClick={() => { setRejectReason(''); setRejectModalBooking(b); }} className="px-4 py-2 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50">
                         REJECT BOOKING
                       </button>
-                      <button type="button" onClick={() => setRescheduleModalBooking(b)} className="px-4 py-2 bg-amber-500 text-white text-xs font-semibold rounded-lg hover:bg-amber-600">
+                      <button type="button" disabled={busyBookingId === b.id} onClick={() => setRescheduleModalBooking(b)} className="px-4 py-2 bg-amber-500 text-white text-xs font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-50">
                         REQUEST RESCHEDULE
                       </button>
                     </div>
@@ -602,10 +628,11 @@ export function GarageManagerDashboard({
                         </select>
                         <button
                           type="button"
+                          disabled={busyBookingId === b.id}
                           onClick={() => handleAssignMechanic(b)}
-                          className="px-3.5 py-1.5 bg-[#0B132B] text-white text-xs font-semibold rounded-lg"
+                          className="px-3.5 py-1.5 bg-[#0B132B] text-white text-xs font-semibold rounded-lg disabled:opacity-50"
                         >
-                          Assign Mechanic &amp; Open Job Card
+                          {busyBookingId === b.id ? 'Assigning...' : 'Assign Mechanic & Open Job Card'}
                         </button>
                       </div>
                     )}
@@ -1375,6 +1402,14 @@ export function GarageManagerDashboard({
               className="bg-white border border-slate-200 rounded-xl p-6 max-w-2xl space-y-4"
             >
               <h2 className="text-lg font-bold text-[#0B132B]">Garage Settings — {garage.name}</h2>
+              <div className="h-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                <GarageImage
+                  garageId={garage.garageId}
+                  photoUrl={garage.photoUrl}
+                  alt={garage.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Operating Hours</label>
@@ -1428,8 +1463,8 @@ export function GarageManagerDashboard({
               <button type="button" onClick={() => setRejectModalBooking(null)} className="px-4 py-2 text-xs font-semibold border border-slate-300 rounded-lg">
                 Cancel
               </button>
-              <button type="submit" className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700">
-                Confirm Reject
+              <button type="submit" disabled={Boolean(busyBookingId)} className="px-4 py-2 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {busyBookingId ? 'Rejecting...' : 'Confirm Reject'}
               </button>
             </div>
           </form>

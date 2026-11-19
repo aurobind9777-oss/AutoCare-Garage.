@@ -16,9 +16,10 @@ import {
   CheckCircle2,
   Menu,
 } from 'lucide-react';
-import { HERO_WORKSHOP_IMAGE, DEMO_SIX_GARAGES } from '../../data/seedCatalog';
+import { DEMO_SIX_GARAGES } from '../../data/seedCatalog';
 import { formatINR } from '../../utils/exportHelpers';
 import { ActiveStatusLabel } from '../common/StatusBadge';
+import { GarageImage } from '../common/GarageImage';
 import type { Garage, PlatformSettings, Review, ServicePackage, UserAccount } from '../../types/autocare';
 
 interface PublicWebsiteProps {
@@ -252,10 +253,9 @@ export function PublicWebsite({
 
                 <div className="lg:col-span-6">
                   <div className="h-full min-h-[300px] lg:min-h-[420px] rounded-xl overflow-hidden border border-white/15 bg-slate-900 relative">
-                    <img
-                      src={HERO_WORKSHOP_IMAGE}
+                    <GarageImage
+                      isHero
                       alt="AutoCare Garage multi-bay car and motorcycle service center"
-                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -292,10 +292,10 @@ export function PublicWebsite({
                     >
                       <div>
                         <div className="h-44 bg-slate-100 overflow-hidden">
-                          <img
-                            src={g.photoUrl || HERO_WORKSHOP_IMAGE}
+                          <GarageImage
+                            garageId={g.garageId}
+                            photoUrl={g.photoUrl}
                             alt={g.name}
-                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -543,10 +543,10 @@ export function PublicWebsite({
                   <div key={g.garageId} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between">
                     <div>
                       <div className="h-48 bg-slate-100 overflow-hidden">
-                        <img
-                          src={g.photoUrl || HERO_WORKSHOP_IMAGE}
+                        <GarageImage
+                          garageId={g.garageId}
+                          photoUrl={g.photoUrl}
                           alt={g.name}
-                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -776,10 +776,10 @@ export function PublicWebsite({
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-xl max-w-xl w-full overflow-hidden shadow-xl">
             <div className="h-48 bg-slate-100 relative">
-              <img
-                src={detailGarage.photoUrl || HERO_WORKSHOP_IMAGE}
+              <GarageImage
+                garageId={detailGarage.garageId}
+                photoUrl={detailGarage.photoUrl}
                 alt={detailGarage.name}
-                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />
               <button

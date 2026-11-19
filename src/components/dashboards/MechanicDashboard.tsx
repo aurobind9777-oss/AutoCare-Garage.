@@ -25,6 +25,7 @@ import {
 } from '../../services/firestoreService';
 import { formatDateTime, formatINR, getTodayISO } from '../../utils/exportHelpers';
 import { BookingStatusBadge } from '../common/StatusBadge';
+import { GarageImage } from '../common/GarageImage';
 import { useToast } from '../common/ToastProvider';
 import { useAuth } from '../../context/AuthContext';
 import type {
@@ -360,9 +361,27 @@ export function MechanicDashboard({ account, garages, onGoPublic }: MechanicDash
         <main className="p-4 sm:p-6 max-w-6xl w-full mx-auto space-y-6">
           {tab === 'overview' && (
             <div className="space-y-6">
-              <div>
-                <h1 className="text-2xl font-bold text-[#0B132B]">Mechanic Workbench — {mechanicProfile?.name || account.displayName}</h1>
-                <p className="text-xs text-slate-500 mt-1">Scoped strictly to jobs assigned to you at {myGarage?.name || account.garageId}.</p>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col sm:flex-row">
+                <div className="sm:w-52 h-36 sm:h-auto shrink-0 bg-slate-100">
+                  <GarageImage
+                    garageId={myGarage?.garageId || account.garageId}
+                    photoUrl={myGarage?.photoUrl}
+                    alt={myGarage?.name || account.garageId || 'Assigned Garage'}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="p-5 flex flex-col justify-center">
+                  <div className="text-[11px] font-mono font-bold text-red-600 uppercase">
+                    {myGarage ? `${myGarage.code} · ${myGarage.city}` : account.garageId}
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-[#0B132B] mt-0.5">
+                    Mechanic Workbench — {mechanicProfile?.name || account.displayName}
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Scoped strictly to jobs assigned to you at {myGarage?.name || account.garageId}.
+                    {myGarage?.operatingHours ? ` · ${myGarage.operatingHours}` : ''}
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
@@ -574,14 +593,23 @@ export function MechanicDashboard({ account, garages, onGoPublic }: MechanicDash
           )}
 
           {tab === 'profile' && (
-            <div className="bg-white border border-slate-200 rounded-xl p-6 max-w-lg space-y-4">
-              <h2 className="text-lg font-bold text-[#0B132B]">Mechanic Profile</h2>
-              <div className="text-xs space-y-1 text-slate-600">
-                <p><strong>Name:</strong> {mechanicProfile?.name || account.displayName}</p>
-                <p><strong>Email:</strong> {account.email}</p>
-                <p><strong>Assigned Garage:</strong> {myGarage?.name || account.garageId}</p>
-                <p><strong>Specialization:</strong> {mechanicProfile?.specialization || 'General Service'}</p>
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden max-w-lg">
+              <div className="h-40 bg-slate-100">
+                <GarageImage
+                  garageId={myGarage?.garageId || account.garageId}
+                  photoUrl={myGarage?.photoUrl}
+                  alt={myGarage?.name || account.garageId || 'Assigned Garage'}
+                  className="w-full h-full object-cover"
+                />
               </div>
+              <div className="p-6 space-y-4">
+                <h2 className="text-lg font-bold text-[#0B132B]">Mechanic Profile</h2>
+                <div className="text-xs space-y-1 text-slate-600">
+                  <p><strong>Name:</strong> {mechanicProfile?.name || account.displayName}</p>
+                  <p><strong>Email:</strong> {account.email}</p>
+                  <p><strong>Assigned Garage:</strong> {myGarage?.name || account.garageId}</p>
+                  <p><strong>Specialization:</strong> {mechanicProfile?.specialization || 'General Service'}</p>
+                </div>
               {mechanicProfile && (
                 <button
                   type="button"
@@ -593,6 +621,7 @@ export function MechanicDashboard({ account, garages, onGoPublic }: MechanicDash
                   Status: {mechanicProfile.isAvailable ? 'Available for Assignments' : 'Busy / Unavailable'} (Click to Toggle)
                 </button>
               )}
+              </div>
             </div>
           )}
         </main>

@@ -18,6 +18,7 @@ import { db, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { DEFAULT_TIME_SLOTS } from '../../data/seedCatalog';
 import { makeSlotId, saveVehicle, submitGarageBooking } from '../../services/firestoreService';
 import { formatINR, getTodayISO } from '../../utils/exportHelpers';
+import { GarageImage } from '../common/GarageImage';
 import { useToast } from '../common/ToastProvider';
 import type {
   AppointmentSlot,
@@ -534,18 +535,12 @@ export function BookingWizard({
                     }`}
                   >
                     <div className="h-32 w-full bg-slate-100 overflow-hidden relative">
-                      {g.photoUrl ? (
-                        <img
-                          src={g.photoUrl}
-                          alt={g.name}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-[#0B132B] flex items-center justify-center text-white text-xs font-semibold">
-                          {g.code}
-                        </div>
-                      )}
+                      <GarageImage
+                        garageId={g.garageId}
+                        photoUrl={g.photoUrl}
+                        alt={g.name}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <div className="p-4 flex-1 flex flex-col justify-between">
                       <div>
